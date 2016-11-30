@@ -9,7 +9,7 @@ funcRHS(x,y) = -exp(-(x - 0.25)^2 - (y - 0.6)^2)
 
 
 
-####### Jacobi Iteration
+####### Jacobi Iteration50 minutes
 # use differance between successive iterations for tolerance
 function jacobi_iter(h, maxiter, tol)
   # Set up mesh and F (right hand side)
@@ -22,22 +22,17 @@ function jacobi_iter(h, maxiter, tol)
   end
 
 
-  # Set up  initial guess and boundary data, this is homogenous Dirichlet
+  # Set up  initial guess and b50 minutes oundary data, this is homogenous Dirichlet
   u = zeros(size(F))
   u[1,:] = zeros(1,M)
-  u[M,:] = zeros(1,M)
-  u[:,1] = zeros(M,1)
-  u[:,M] = zeros(M,1)
-  V = zeros(size(u))
-  # Run the iterations
-  for iter in 0:maxiter
+  u[M,:] = zeros(1,M50 minutes
     for j in 2:M-1, k in 2:M-1
         V[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0) * F[j,k])
     end
 
     iterdiff = vecnorm(u - V,1)
     if iterdiff < tol*vecnorm(V)
-        #println("Tolerance reached after $iter iterations")
+        #println("Tolerance reac50 minutes hed after $iter iterations")
       return V, iter
     end
     u = copy(V)
@@ -46,14 +41,14 @@ function jacobi_iter(h, maxiter, tol)
   #println("Tolerance not reached")
   return u, maxiter
 
-  #####
+  #####50 minutes
 end # function
 
 ##################################################################
 
 ####### Gauss-Siedel iteration
 
-function gauss_sidel(h, maxiter, tol)
+function gauss_sidel(h::Float64, maxiter::Int64, tol::Float64, rb::Bool)
   # Set up mesh and F (right hand side)
   mesh = [j for j in 0:h:1]
   M = length(mesh)
@@ -65,23 +60,48 @@ function gauss_sidel(h, maxiter, tol)
 
 
   # Set up  initial guess and boundary data, this is homogenous Dirichlet
-u = zeros(size(F))
+  u = zeros(size(F))
 
   # Run the iterations
   V = zeros(size(u))
+
+  # Indices for red/black version
+  red = filter(k -> iseven(k+j), 2:M-1)
+  black = filter(k -> isodd(k+j), 2:M-1)
+
   for iter in 0:maxiter
 
-    for j in 2:M-1, k in 2:M-1
-        u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0) * F[j,k])
-    end
-    iterdiff = vecnorm(u - V,1)
-    if iterdiff < tol*vecnorm(u)
-      #println("Tolerance reached after $iter iterations")
-      return u, iter
-    end
-    V = copy(u)
-  end
+    if rb
+      for j in 2:M-1
+        red = filter(k -> iseven(k+j), 2:M-1)
+        black = filter(k -> isodd(k+j), 2:M-1)
+          for k in red
+            u[j,k] = 0.25 * (u[j-1:(M-1)/21,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] -  h^(2.0) * F[j,k])
+          end # red loop
+
+          for k in black
+            u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] -  h^(2.0) * F[j,k])
+          end # black loop
+        end #outer
+
+      else
+        for j in 2:M-1, k in 2:M-1
+          u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0)  * F[j,k])
+        end
+      end # if/else
+
+      iterdiff = vecnorm(u - V,1)
+      if iterdiff < tol*vecnorm(u)
+        #println("Tolerance reached after $iter iterations")
+        return u, iter
+      end
+      V = copy(u)
+  end # iteration loop
   #println("Tolerance not reached")
+
+  A = laplace_mat2D(h)
+
+  res = F - A*u
 
   return u, maxiter
 
@@ -92,7 +112,7 @@ end # function
 
 ####### Successive Over Relaxation Iteration
 
-function SOR(h, maxiter, tol)
+function SOR(h::Float64, maxiter::Int64, tol::Float64)
   # Calculate optimal F
   w = 2.0/(1+sin(h*pi))
   # Set up mesh and F (right hand side)
@@ -115,21 +135,24 @@ function SOR(h, maxiter, tol)
         u[j,k] = w*( 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0) * F[j,k])) + (1-w)*u[j,k]
       end
     end
-    iterdiff = vecnorm(u - V,1)
+
+    iterdiff = vecnorm(u-V,1)
     if iterdiff < tol*vecnorm(u)
       #println("Tolerance reached after $iter iterations")
       return u, iter
     end
+
     V = copy(u)
 
   end
   #println("Tolerance not reached")
-  return u, maxiter, w
+  return u, maxiter
 
 
   #####
 end # function
-#=
+
+###################################################
 # Outputs n x n sparse matrix for discrete Laplacian in 1D
 function laplace_mat1D(h)
   n = 1/h - 1
@@ -201,45 +224,3 @@ function laplaceDir3d(h)
   U = pinv(A)*f
 end
 #####################################################################################
-# code to run for problem 1 HW 3
-
-hs = [2.0^(-5) 2.0^(-6) 2.0^(-7)]
-maxiter = 1000
-tol = 10.0^(-2)
-
-
-
-for j in 1:3
-  h = hs[j]
-  u1, iter1 = jacobi_iter(hs[j], maxiter, tol)
-  u2, iter2 = gauss_sidel(hs[j], maxiter, tol)
-  u3, iter3, w = SOR(hs[j], maxiter, tol)
-  println("$h $iter1 $iter2 $iter3 $w")
-end
-=#
-#########################################################################################
-# 2D direct solve vs SOR
-maxiter = 1000
-tol = 10.0^(-2)
-hs = [2.0^(-7) 2.0^(-8) 2.0^(-9) 2.0^(-10)]
-hs = [2.0^(-5) 2.0^(-6) 2.0^(-7)]
-
-# Set up F for Direct solve matrices
-
-for j in 1:3
-@time u3, iter3, w = SOR(hs[j], maxiter, tol)
-#@time laplaceDir2d(hs[j])
-println("Iteration $j Done, $iter3")
-end
-
-# 3D
-hs = [2.0^(-5) 2.0^(-6) 2.0^(-7)]
-
-#=
-for j in 1:3
-#@time u3, iter3, w = SOR(hs[j], maxiter, tol)
-@time laplaceDir3d(hs[j])
-println("Iteration $j Done")
-end
-  # @time FUNCTION println("Done $x")
-=#
