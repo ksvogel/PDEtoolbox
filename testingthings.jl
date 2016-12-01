@@ -12,3 +12,5 @@ end
 using PDEtool
 h = 2.0^(-3)
 mesh, F = PDEtool.h_space(h)
+
+v = PDEtool.squish(F)

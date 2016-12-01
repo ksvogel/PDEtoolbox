@@ -37,7 +37,7 @@ function jacobi_iter(h, maxiter, tol)
   u[M,:] = zeros(1,M)
 
   for iter in 0:maxiter
-    
+    :2:M-1
     for j in 2:M-1, k in 2:M-1
         V[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0) * F[j,k])
     end

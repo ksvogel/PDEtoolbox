@@ -10,4 +10,5 @@ export gauss_sidel
 
 include("MG_vcycle.jl")
 export squish
+export foomp
 end
