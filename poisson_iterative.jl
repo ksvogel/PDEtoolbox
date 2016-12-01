@@ -4,15 +4,13 @@
 # h - mesh spacing
 #
 
+
+
 ####### Set up our R.H.S. function
 funcRHS(x,y) = -exp(-(x - 0.25)^2 - (y - 0.6)^2)
 
-
-
-####### Jacobi Iteration50 minutes
-# use differance between successive iterations for tolerance
-function jacobi_iter(h, maxiter, tol)
-  # Set up mesh and F (right hand side)
+####### Function to set up mesh and RHS for a given spacing h
+function h_space(h)
   mesh = [j for j in 0:h:1]
   M = length(mesh)
   F = zeros(M,M)
@@ -21,18 +19,32 @@ function jacobi_iter(h, maxiter, tol)
       F[j,k] = funcRHS(mesh[j],mesh[k])
   end
 
+  return mesh,F
 
-  # Set up  initial guess and b50 minutes oundary data, this is homogenous Dirichlet
+end #function
+
+
+
+####### Jacobi Iteration
+# use differance between successive iterations for tolerance
+function jacobi_iter(h, maxiter, tol)
+  # Set up mesh and F (right hand side)
+  mesh, F = h_space(h)
+
+  # Set up  initial guess and b oundary data, this is homogenous Dirichlet
   u = zeros(size(F))
   u[1,:] = zeros(1,M)
-  u[M,:] = zeros(1,M50 minutes
+  u[M,:] = zeros(1,M)
+
+  for iter in 0:maxiter
+    
     for j in 2:M-1, k in 2:M-1
         V[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0) * F[j,k])
     end
 
     iterdiff = vecnorm(u - V,1)
     if iterdiff < tol*vecnorm(V)
-        #println("Tolerance reac50 minutes hed after $iter iterations")
+        #println("Tolerance reac hed after $iter iterations")
       return V, iter
     end
     u = copy(V)
@@ -41,7 +53,7 @@ function jacobi_iter(h, maxiter, tol)
   #println("Tolerance not reached")
   return u, maxiter
 
-  #####50 minutes
+  #####
 end # function
 
 ##################################################################
@@ -223,4 +235,4 @@ function laplaceDir3d(h)
   f = copy(vec(F))
   U = pinv(A)*f
 end
-#####################################################################################
+##############################################################################
