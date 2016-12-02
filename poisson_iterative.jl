@@ -64,32 +64,36 @@ end # function
 
 ####### Gauss-Siedel iteration
 
-function gauss_sidel(u, h::Float64, maxiter::Int64, tol::Float64, rb::Bool, F)
+function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float64, rb, F::Array{Float64,2})
 
+  M = size(u, 2)
   # Run the iterations
   V = zeros(size(u))
 
   for iter in 0:maxiter
 
-    if rb
+
       for j in 2:M-1
-        red = filter(k -> iseven(k+j), 2:M-1)
-        black = filter(k -> isodd(k+j), 2:M-1)
+        rs = filter(k -> iseven(k+j), 2:M-1)
+        red = convert(Array{Int64,1}, rs)
+        bs = filter(k -> isodd(k+j), 2:M-1)
+        black = convert(Array{Int64,1}, bs)
           for k in red
-            u[j,k] = 0.25 * (u[j-1:(M-1)/21,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] -  h^(2.0) * F[j,k])
+            u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] -  h^(2.0) * F[j,k])
           end # red loop
 
           for k in black
             u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] -  h^(2.0) * F[j,k])
           end # black loop
         end #outer
-
+        #=
+        if rb == 'rb'
       else
         for j in 2:M-1, k in 2:M-1
           u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0)  * F[j,k])
         end
       end # if/else
-
+        =#
       iterdiff = vecnorm(u - V,1)
       if iterdiff < tol*vecnorm(u)
         #println("Tolerance reached after $iter iterations")

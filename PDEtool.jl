@@ -16,4 +16,7 @@ export gauss_sidel
 include("MG_vcycle.jl")
 export squish
 export foomp
+export turtlesallthewayup
+export turtlesallthewaydown
+export MG_vcycle
 end

@@ -146,7 +146,7 @@ function MG_vcycle(h, F, u, turtles, s1, s2)
   Fs = [F for k in 1:turtles]
 
   # Relax s1 times
-  uout, r_h, maxiter = gauss_sidel(Ua[turtles], h, s1, 1.0^(-6), 1, F)
+  uout, r_h, maxiter = gauss_sidel(Ua[turtles], h, s1, 1.0^(-6), 3, F)
 
   # Store the new estimation of u, uout
   Ua[turtles] = uout
@@ -158,5 +158,7 @@ function MG_vcycle(h, F, u, turtles, s1, s2)
 
   # AND NOW TO START CORRECTING INITIAL GUESSES
   Ua, Fs = turtlesallthewayup(Ua, 1, Fs, h, s1, s2)
+
+  return Ua
 
 end #function
