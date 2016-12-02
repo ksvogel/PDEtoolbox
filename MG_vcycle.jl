@@ -115,12 +115,12 @@ function turtlesallthewayup(Ua, turtles, Fs, h, s1, s2)
 
   # Relax s2 times
   e_h, r_h, maxiter = gauss_sidel(Ua[turtles], hr, s2, 1.0^(-6), 1, Fs[turtles])
-  Ua[turtles] = e_2h
-  Fs[turtles] = f_2h
+  Ua[turtles] = e_h
 
-  if turtles ==  size(Ua[turtles])# Call this function again, move up to next grid
+
+  if turtles <  size(Ua,1)# Call this function again, move up to next grid
     turtlesallthewayup(Ua, turtles, Fs, h, s1, s2)
-  else # Actuall solve rather than relax on coarsest grid
+  else
     return Ua, Fs
   end #conditional
 
