@@ -1,5 +1,10 @@
-# PDEtool module
+#= PDEtool module
+# put
+include("PDEtool.jl")
+using PDEtool
+at top of file to avoid having to use the module.function notation
 
+=#
 push!(LOAD_PATH, "/home/kaela/Documents/GithubRepositories/PDE_solvers")
 
 module PDEtool
