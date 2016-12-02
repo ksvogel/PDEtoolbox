@@ -1,9 +1,10 @@
 # Kaela S. Vogel
 #=
-This is an implementation of multigrid methods to solve PDEs, specific type is V cyles\
+This is an implementation of multigrid methods to solve PDEs, specific type is V-cyle.
 =#
 
-#load PDEtool, remember to use module name with module.function notation
+# load PDEtool, which contains all of these functions
+# remember to use module name with module.function notation
 
 
 ######################## function to apply restriction transformation
@@ -94,38 +95,33 @@ function turtlesallthewaydown(Ua, turtles, Fs, r_h,  h, s1, s2)
     he = 2*hr # coarse the grid
     f_4h = squish(r_2h) # restrict the residual to coarser grid
     E, R, maxiter = gauss_sidel(zeros(size(f_4h)), he, 1000, 1.0^(-6), 1, f_4h)
-    Ua[turtles] = E
     Fs[turtles] = f_2h
-    turtlesallthewayup(Ua, turtles, Fs, r_h,  h, s1, s2)
+    Ua[turtles] = E
+
+    return Ua, Fs
   end #conditional
 
 end #function
 
 ##################### Function to move recursively up the grid levels
 
-function turtlesallthewayup(Ua, turtles, Fs, r_h,  h, s1, s2)
+function turtlesallthewayup(Ua, turtles, Fs, h, s1, s2)
 
   turtles += 1
   println("We are at turtle level $turtles")
-  hr = 2*h # fine the grid, it should pay
-  f_2h = squish(r_h) # restrict the residual to coarser grid
+  hr = h/2 # fine the grid, it should pay
+  corr = foomp(Ua[turtles-1]) # interpolate error from previous grid
+  Ua[turtles] += corr # correct inital guess at level turtles
 
-  # Relax s1 times
-  e_2h, r_2h, maxiter = gauss_sidel(zeros(size(f_2h)), hr, s1, 1.0^(-6), 1, f_2h)
+  # Relax s2 times
+  e_h, r_h, maxiter = gauss_sidel(Ua[turtles], hr, s2, 1.0^(-6), 1, Fs[turtles])
   Ua[turtles] = e_2h
   Fs[turtles] = f_2h
 
-  if turtles > 2 # Call this function again, move to next grid
-    turtlesallthewaydown(Ua, turtles, Fs, r_2h,  hr, s1, s2)
+  if turtles ==  size(Ua[turtles])# Call this function again, move up to next grid
+    turtlesallthewayup(Ua, turtles, Fs, h, s1, s2)
   else # Actuall solve rather than relax on coarsest grid
-    turtles -= 1
-    println("This is the final turtle")
-    he = 2*hr # coarse the grid
-    f_4h = squish(r_2h) # restrict the residual to coarser grid
-    E, R, maxiter = gauss_sidel(zeros(size(f_4h)), he, 1000, 1.0^(-6), 1, f_4h)
-    Ua[turtles] = E
-    Fs[turtles] = f_2h
-    turtlesallthewayup(v, turtles, residual, h)
+    return Ua, Fs
   end #conditional
 
 end #function
@@ -156,6 +152,11 @@ function MG_vcycle(h, F, u, turtles, s1, s2)
   Ua[turtles] = uout
 
   # Start the process of restriction and working on coarser grids
-  turtlesallthewaydown(Ua, turtles, Fs, r_h,  h, s1, s2)
+  Ua, Fs = turtlesallthewaydown(Ua, turtles, Fs, r_h,  h, s1, s2)
+
+  h = turtles*h # Get the spacing of the coarsest grid
+
+  # AND NOW TO START CORRECTING INITIAL GUESSES
+  Ua, Fs = turtlesallthewayup(Ua, 1, Fs, h, s1, s2)
 
 end #function
