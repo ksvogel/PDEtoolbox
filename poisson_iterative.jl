@@ -64,17 +64,10 @@ end # function
 
 ####### Gauss-Siedel iteration
 
-function gauss_sidel(h::Float64, maxiter::Int64, tol::Float64, rb::Bool, F, mesh)
-
-  # Set up  initial guess and boundary data, this is homogenous Dirichlet
-  u = zeros(size(F))
+function gauss_sidel(u, h::Float64, maxiter::Int64, tol::Float64, rb::Bool, F)
 
   # Run the iterations
   V = zeros(size(u))
-
-  # Indices for red/black version
-  red = filter(k -> iseven(k+j), 2:M-1)
-  black = filter(k -> isodd(k+j), 2:M-1)
 
   for iter in 0:maxiter
 
