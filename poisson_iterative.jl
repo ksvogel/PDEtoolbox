@@ -6,11 +6,15 @@
 
 
 
-####### Set up our R.H.S. function
-funcRHS(x,y) = -exp(-(x - 0.25)^2 - (y - 0.6)^2)
+
 
 ####### Function to set up mesh and RHS for a given spacing h
-function h_space(h)
+#=
+funcRHS anonymous function, e.g. (x,y) -> x^2+y
+
+=#
+
+function h_space(funcRHS::Function, h::Float64)
   mesh = [j for j in 0:h:1]
   M = length(mesh)
   F = zeros(M,M)
@@ -60,16 +64,7 @@ end # function
 
 ####### Gauss-Siedel iteration
 
-function gauss_sidel(h::Float64, maxiter::Int64, tol::Float64, rb::Bool)
-  # Set up mesh and F (right hand side)
-  mesh = [j for j in 0:h:1]
-  M = length(mesh)
-  F = zeros(M,M)
-
-  for j in 1:M, k in 1:M
-      F[j,k] = funcRHS(mesh[j],mesh[k])
-  end
-
+function gauss_sidel(h::Float64, maxiter::Int64, tol::Float64, rb::Bool, F, mesh)
 
   # Set up  initial guess and boundary data, this is homogenous Dirichlet
   u = zeros(size(F))
@@ -115,7 +110,7 @@ function gauss_sidel(h::Float64, maxiter::Int64, tol::Float64, rb::Bool)
 
   res = F - A*u
 
-  return u, maxiter
+  return u, res, maxiter
 
   #####
 end # function

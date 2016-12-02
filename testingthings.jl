@@ -11,7 +11,10 @@ end
 #include("PDEtool.jl")
 using PDEtool
 h = 2.0^(-3)
-mesh, F = PDEtool.h_space(h)
+
+####### Set up our R.H.S. function
+#funcRHS(x,y) = -exp(-(x - 0.25)^2 - (y - 0.6)^2)
+mesh, F = PDEtool.h_space((x, y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2), h)
 
 v = PDEtool.squish(F)
 u = PDEtool.foomp(v)

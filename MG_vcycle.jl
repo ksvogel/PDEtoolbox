@@ -70,3 +70,40 @@ function foomp(v)
   return vF
 
 end #function
+
+##################### Function to move recursively down the grid levels
+
+function turtlesallthewaydown(v, turtles, r_h, h, v1, v2)
+
+  hr = 2h # coarse the grid
+  r_2h = squish(r_h) # restrict the residual to coarser grid
+  turtles -= 1
+  if turtles > 1
+    turtlesallthewaydown(v, turtles, residual, h)
+  else
+    e_2h = zeros(size(r_2h))
+    gauss_sidel(h::Float64, maxiter::Int64, tol::Float64, rb::Bool)
+    turtlesallthewayup(v, turtles, residual, h)
+  end #conditional
+
+end #function
+
+##################### Function to run the multigrid V-cycle
+#=
+s1   number of tiems to smooth on restricion steps
+s2    number of times to smooth on prolongation steps
+u   initial guess for solution
+h   fine grid spacing
+turtles  keeps track of which grid level we are on
+F   RHS of original PDE descritized and evaluated on fine grid
+
+  =#
+
+function MG_vcycle(h, F, u, grids, s1, s2)
+
+  Ua = Array{Array{Float64,2},1} # Array of arrays that will hold the approx sol. at each level
+  uout, res, maxiter
+
+
+
+end #function
