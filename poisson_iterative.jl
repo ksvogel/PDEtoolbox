@@ -65,7 +65,8 @@ end # function
 ####### Gauss-Siedel iteration
 
 function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float64, rb, F::Array{Float64,2})
-
+  
+  residual = zeros(size(u,2), size(u,2))
   M = size(u, 2)
   # Run the iterations
   V = zeros(size(u))
@@ -93,21 +94,27 @@ function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float
           u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0)  * F[j,k])
         end
       end # if/else
-        =#
-      iterdiff = vecnorm(u - V,1)
+=#
+      iterdiff = vecnorm(u-V,1)
       if iterdiff < tol*vecnorm(u)
         #println("Tolerance reached after $iter iterations")
-        return u, iter
+        for j in 2:M-1, k in 2:M-1
+          residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k]) - F[j,k]
+        end
+        return u, residual, iter
       end
+
       V = copy(u)
   end # iteration loop
   #println("Tolerance not reached")
+println("boop")
+  residual = zeros(size(u,2), size(u,2))
 
-  A = laplace_mat2D(h)
-
-  res = F - A*u
-
-  return u, res, maxiter
+  for j in 2:M-1, k in 2:M-1
+    residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k]) - F[j,k]
+  end
+println("beep")
+  return u, residual, maxiter
 
   #####
 end # function
