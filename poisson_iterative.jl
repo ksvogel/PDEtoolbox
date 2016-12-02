@@ -65,7 +65,7 @@ end # function
 ####### Gauss-Siedel iteration
 
 function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float64, rb, F::Array{Float64,2})
-  
+
   residual = zeros(size(u,2), size(u,2))
   M = size(u, 2)
   # Run the iterations
@@ -97,7 +97,7 @@ function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float
 =#
       iterdiff = vecnorm(u-V,1)
       if iterdiff < tol*vecnorm(u)
-        #println("Tolerance reached after $iter iterations")
+        println("Tolerance reached after $iter iterations")
         for j in 2:M-1, k in 2:M-1
           residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k]) - F[j,k]
         end
@@ -107,13 +107,11 @@ function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float
       V = copy(u)
   end # iteration loop
   #println("Tolerance not reached")
-println("boop")
   residual = zeros(size(u,2), size(u,2))
 
   for j in 2:M-1, k in 2:M-1
     residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k]) - F[j,k]
   end
-println("beep")
   return u, residual, maxiter
 
   #####

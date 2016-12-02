@@ -77,7 +77,7 @@ end #function
 function turtlesallthewaydown(Ua, turtles, Fs, r_h,  h, s1, s2)
 
   turtles -= 1
-  println("We have $turtles turtles to go")
+  #println("We have $turtles turtles to go")
   hr = 2*h # coarse the grid
   f_2h = squish(r_h) # restrict the residual to coarser grid
 
@@ -91,7 +91,7 @@ function turtlesallthewaydown(Ua, turtles, Fs, r_h,  h, s1, s2)
   else # Direct solve rather than relax on coarsest grid
     #CURRENTLY STILL ITERATIVE
     turtles -= 1
-    println("This is the final turtle")
+    #println("This is the final turtle")
     he = 2*hr # coarse the grid
     f_4h = squish(r_2h) # restrict the residual to coarser grid
     E, R, maxiter = gauss_sidel(zeros(size(f_4h)), he, 1000, 1.0^(-6), 1, f_4h)
@@ -108,13 +108,13 @@ end #function
 function turtlesallthewayup(Ua, turtles, Fs, h, s1, s2)
 
   turtles += 1
-  println("We are at turtle level $turtles")
+  #println("We are at turtle level $turtles")
   hr = h/2 # fine the grid, it should pay
   corr = foomp(Ua[turtles-1]) # interpolate error from previous grid
   Ua[turtles] += corr # correct inital guess at level turtles
 
   # Relax s2 times
-  e_h, r_h, maxiter = gauss_sidel(Ua[turtles], hr, s2, 1.0^(-6), 1, Fs[turtles])
+  e_h, r_h, maxiter = gauss_sidel(Ua[turtles], hr, s2, 1.0^(-20), 1, Fs[turtles])
   Ua[turtles] = e_h
 
 
@@ -137,28 +137,49 @@ F   RHS of original PDE descritized and evaluated on fine grid
 
   =#
 
-function MG_vcycle(h, F, u, turtles, s1, s2)
+function MG_vcycle(h, F, u, turtles, s1, s2, tol)
 
+  M = size(F,2)
   # Array of arrays that will hold the approx sol. at each level
   Ua = [u for k in 1:turtles]
 
   # Array of arrays that will hold the RHS at each level
   Fs = [F for k in 1:turtles]
 
-  # Relax s1 times
-  uout, r_h, maxiter = gauss_sidel(Ua[turtles], h, s1, 1.0^(-6), 3, F)
+  maxiter = 5
 
-  # Store the new estimation of u, uout
-  Ua[turtles] = uout
+  for iter in 1:maxiter
+    # Reset level counter
+    turtles = size(Ua,1)
 
-  # Start the process of restriction and working on coarser grids
-  Ua, Fs = turtlesallthewaydown(Ua, turtles, Fs, r_h,  h, s1, s2)
+    # Relax s1 times
+    uout, r_h, maxiter = gauss_sidel(Ua[turtles], h, s1, 1.0^(-6), 3, F)
 
-  h = turtles*h # Get the spacing of the coarsest grid
+    # Store the new estimation of u, uout
+    Ua[turtles] = uout
 
-  # AND NOW TO START CORRECTING INITIAL GUESSES
-  Ua, Fs = turtlesallthewayup(Ua, 1, Fs, h, s1, s2)
+    # Start the process of restriction and working on coarser grids
+    Ua, Fs = turtlesallthewaydown(Ua, turtles, Fs, r_h,  h, s1, s2)
 
+    h = size(Ua,1)*h # Get the spacing of the coarsest grid
+
+    # AND NOW TO START CORRECTING INITIAL GUESSES
+    Ua, Fs = turtlesallthewayup(Ua, 1, Fs, h, s1, s2)
+
+    # Check if relative residual error is less than tolerance
+    residual = zeros(M,M)
+    v = Ua[turtles]
+      for j in 2:M-1, k in 2:M-1
+        residual[j,k] = h^(-2) * (v[j-1,k] + v[j+1,k] + v[j,k-1] + v[j,k+1] -  4* v[j,k]) - F[j,k]
+      end
+
+      if vecnorm(residual,1) < tol*vecnorm(F,1)
+        println("V-cycle - tolerance reached after $iter iterations")
+        return Ua
+      end
+
+    end
+  println("beep")
   return Ua
 
 end #function
