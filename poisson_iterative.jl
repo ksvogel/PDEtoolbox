@@ -27,6 +27,19 @@ function h_space(funcRHS::Function, h::Float64)
 
 end #function
 
+###### Function to calculate the residual
+function rescalc(u, h, F)
+  M = size(u,1)
+  residual = zeros(M, M)
+
+  for j in 2:M-1, k in 2:M-1
+    residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k]) - F[j,k]
+  end
+
+  return residual
+
+end
+
 
 
 ####### Jacobi Iteration
@@ -41,7 +54,7 @@ function jacobi_iter(h, maxiter, tol)
   u[M,:] = zeros(1,M)
 
   for iter in 0:maxiter
-    :2:M-1
+
     for j in 2:M-1, k in 2:M-1
         V[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0) * F[j,k])
     end
@@ -96,11 +109,10 @@ function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float
       end # if/else
 =#
       iterdiff = vecnorm(u-V,1)
-      if iterdiff < tol*vecnorm(u)
+      residual = rescalc(u, h, F)
+      if vecnorm(residual,1) < tol*vecnorm(F,1) #if iterdiff < tol*vecnorm(u)
         println("Tolerance reached after $iter iterations")
-        for j in 2:M-1, k in 2:M-1
-          residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k]) - F[j,k]
-        end
+        #residual = rescalc(u)
         return u, residual, iter
       end
 
@@ -121,17 +133,12 @@ end # function
 
 ####### Successive Over Relaxation Iteration
 
-function SOR(h::Float64, maxiter::Int64, tol::Float64)
+function SOR(h::Float64, maxiter::Int64, tol::Float64, F::Array{Float64,2})
   # Calculate optimal F
   w = 2.0/(1+sin(h*pi))
-  # Set up mesh and F (right hand side)
-  mesh = [j for j in 0:h:1]
-  M = length(mesh)
-  F = zeros(M,M)
 
-  for j in 1:M, k in 1:M
-      F[j,k] = funcRHS(mesh[j],mesh[k])
-  end
+  M = size(F,2)
+
 
   # Set up  initial guess and boundary data, this is homogenous Dirichlet
   u = zeros(M,M)
@@ -144,11 +151,13 @@ function SOR(h::Float64, maxiter::Int64, tol::Float64)
         u[j,k] = w*( 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0) * F[j,k])) + (1-w)*u[j,k]
       end
     end
-
+    
     iterdiff = vecnorm(u-V,1)
-    if iterdiff < tol*vecnorm(u)
-      #println("Tolerance reached after $iter iterations")
-      return u, iter
+    residual = rescalc(u, h, F)
+    if vecnorm(residual,1) < tol*vecnorm(F,1) #if iterdiff < tol*vecnorm(u)
+      println("Tolerance reached after $iter iterations")
+      #residual = rescalc(u)
+      return u, residual, iter
     end
 
     V = copy(u)

@@ -12,6 +12,7 @@ module PDEtool
 include("poisson_iterative.jl")
 export h_cycle
 export gauss_sidel
+export SOR
 
 include("MG_vcycle.jl")
 export squish
