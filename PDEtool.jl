@@ -13,6 +13,7 @@ include("poisson_iterative.jl")
 export h_cycle
 export gauss_sidel
 export SOR
+export jacobi_iter
 
 include("MG_vcycle.jl")
 export squish

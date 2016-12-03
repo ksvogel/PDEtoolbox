@@ -30,13 +30,13 @@ end #function
 ###### Function to calculate the residual
 function rescalc(u, h, F)
   M = size(u,1)
-  residual = zeros(M, M)
+  lap2D = zeros(M, M)
 
   for j in 2:M-1, k in 2:M-1
-    residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k])
+    lap2D[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k])
   end
 
-  return residual
+  return (lap2D - F)
 
 end
 
@@ -44,15 +44,14 @@ end
 
 ####### Jacobi Iteration
 # use differance between successive iterations for tolerance
-function jacobi_iter(h, maxiter, tol)
+function jacobi_iter(h, maxiter, tol, F)
   # Set up mesh and F (right hand side)
-  mesh, F = h_space(h)
-
+M = size(F,1)
   # Set up  initial guess and b oundary data, this is homogenous Dirichlet
   u = zeros(size(F))
   u[1,:] = zeros(1,M)
   u[M,:] = zeros(1,M)
-
+  V = zeros(size(u))
   for iter in 0:maxiter
 
     for j in 2:M-1, k in 2:M-1
@@ -61,7 +60,7 @@ function jacobi_iter(h, maxiter, tol)
 
     iterdiff = vecnorm(u - V,1)
     if iterdiff < tol*vecnorm(V)
-        #println("Tolerance reac hed after $iter iterations")
+        println("Tolerance reac hed after $iter iterations")
       return V, iter
     end
     u = copy(V)
@@ -111,8 +110,8 @@ function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float
       residual = rescalc(u, h, F)
 
       #if vecnorm(residual,1) < tol*vecnorm(F,1)
-      if iterdiff < tol*vecnorm(u)
-        println("Tolerance reached after $iter iterations")
+      if iterdiff < tol*vecnorm(u,1)
+        println("GS RB Tolerance reached after $iter iterations")
         #residual = rescalc(u)
         return u, residual, iter
       end
@@ -151,8 +150,8 @@ function SOR(h::Float64, maxiter::Int64, tol::Float64, F::Array{Float64,2})
 
     iterdiff = vecnorm(u-V,1)
     residual = rescalc(u, h, F)
-    if iterdiff < tol*vecnorm(u)
-      println("Tolerance reached after $iter iterations")
+    if iterdiff < tol*vecnorm(u,1)
+      println("SOR Tolerance reached after $iter iterations")
       #residual = rescalc(u)
       return u, residual, iter
     end

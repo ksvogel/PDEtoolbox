@@ -92,10 +92,10 @@ function turtlesallthewaydown(Ua, turtles, Fs, Rs,  hs, s1, s2)
   Fs[turtles] = copy(f_2hd)
 
   # Relax s1 times
-  e_2hd, rz, iterz = gauss_sidel(zeros(size(f_2hd)), hs[turtles], s1, 10.0^(-20), 1, Fs[turtles])
+  e_2hd, rz, iterz = gauss_sidel(zeros(size(f_2hd)), hs[turtles], s1, 10.0^(-20), 1, -Fs[turtles])
   Ua[turtles] = copy(e_2hd)
   Rs[turtles] = copy(rz)
-  println(vecnorm(rz,2))
+  #println(vecnorm(rz,2))
   if turtles > 2 # Call this function again, move to next grid
     turtlesallthewaydown(Ua, turtles, Fs, Rs,  hs, s1, s2)
   else # Direct solve rather than relax on coarsest grid
@@ -119,17 +119,17 @@ end #function
 function turtlesallthewayup(Ua, Rs, turtles, Fs, hs, s1, s2)
 
   turtles += 1
-  println("We are at turtle level $turtles")
+  #println("We are at turtle level $turtles")
   e_prev = copy(Ua[turtles-1])
   corr = foomp(e_prev) # interpolate error from previous grid
   Uacorrect = copy(Ua[turtles]) - corr
   cnorm = vecnorm(corr, 2)
-  println("corr is $cnorm")
+  #println("corr is $cnorm")
   # Relax s2 times
-  e_hup, r_hup, iterz = gauss_sidel(Uacorrect, hs[turtles], s2, 10.0^(-50), 1, Fs[turtles])
+  e_hup, r_hup, iterz = gauss_sidel(Uacorrect, hs[turtles], s2, 10.0^(-50), 1, -Fs[turtles])
   Ua[turtles] = copy(e_hup)
   Rs[turtles] = copy(r_hup)
-  println(vecnorm(r_hup,2))
+  #println(vecnorm(r_hup,2))
 
 
   if turtles <  size(hs,1)# Call this function again, move up to next grid
@@ -164,15 +164,15 @@ function MG_vcycle(h, F, u0, turtles, s1, s2, tol)
   # Array of arrays that will hold the RHS at each level
   Fs = [F for k in 1:turtles]
 
-  maxiter = 100
-
+  maxiter = 1000
+  V = copy(Ua[turtles])
   for iter in 1:maxiter
     # Reset level counter
     turtles = copy(turtletrack)
 
     # Relax s1 times
     uoutz, r_h, iterz = gauss_sidel(Ua[turtles], hs[end], s1, 10.0^(-20), 3, F)
-    println(vecnorm(r_h,2))
+    #println(vecnorm(r_h,2))
 
     # Store the new estimation of u, uout
     Ua[turtles] = copy(uoutz)
@@ -188,18 +188,18 @@ function MG_vcycle(h, F, u0, turtles, s1, s2, tol)
     v = copy(Ua[turtles])
     residual = rescalc(v, hs[end], F)
     res = vecnorm(residual,2)
-    println("residual after cycle $res")
+    #println("residual after cycle $res")
 
-      if vecnorm(residual,1) < tol*vecnorm(F,1)
+      if vecnorm(Ua[turtles]-V,1) < tol*vecnorm(Ua[turtles],1)
         println("V-cycle - tolerance reached after $iter iterations")
-        return Ua, residual
+        return Ua, residual, iter
       end
-
+          V = copy(Ua[turtles])
     end
     # Check if relative residual error is less than tolerance
-    v = copy(Ua[turtles])
-    residual = rescalc(v, hs[end], F)
+
+    residual = rescalc(V, hs[end], F)
   println("beep")
-  return Ua, residual
+  return Ua, residual, iter
 
 end #function

@@ -20,12 +20,12 @@ funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
 mesh, F = PDEtool.h_space(funcRHS, h)
 # Set up  initial guess and boundary data, this is homogenous Dirichlet
 u = zeros(size(F))
-s1 = 3
+s1 = 1
 s2 = 3
-tol = 10.0^(-8)
+tol = 10.0^(-6)
 
 uSOR, iterst = SOR(h, 30, tol, F)
-Ua, residual = @step MG_vcycle(h, F, uSOR, turtles, s1, s2, tol)
+Ua, residual = MG_vcycle(h, F, u, turtles, s1, s2, tol)
 uout, res, maxiter = gauss_sidel(u, h, 1000, tol, 1, F)
 iterdiff = vecnorm(uout-Ua[turtles],1)
 
@@ -36,6 +36,18 @@ iterdiff = vecnorm(uSOR-uout,1)
 c = squish(ones(3,3))
 d = squish(c)
 q = foomp(ones(size(F)))
+
+for turtles in [5 6 7]
+  h = 2.0^(-turtles)
+  funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
+  mesh, F = PDEtool.h_space(funcRHS, h)
+  # Set up  initial guess and boundary data, this is homogenous Dirichlet
+  u = zeros(size(F))
+  s1 = 1
+  s2 = 3
+  tol = 10.0^(-4)
+  Ua, residual = MG_vcycle(h, F, u, turtles, s1, s2, tol)
+end
 #=
 h = 2.0^(-2)
 funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
