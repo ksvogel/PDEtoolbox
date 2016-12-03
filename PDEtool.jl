@@ -18,7 +18,10 @@ export jacobi_iter
 include("MG_vcycle.jl")
 export squish
 export foomp
-export turtlesallthewayup
-export turtlesallthewaydown
-export MG_vcycle
+export vcycle
+
+include("badbehavior.jl")
+export parentalunit
+export evilchild
+export recursioncheck
 end

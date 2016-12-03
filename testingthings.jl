@@ -15,15 +15,15 @@ using PDEtool
 
 ####### Set up our R.H.S. function
 turtles = 3
-h = 2.0^(-turtles)
 funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
-mesh, F = PDEtool.h_space(funcRHS, h)
+mesh, F = h_space(funcRHS, h)
 # Set up  initial guess and boundary data, this is homogenous Dirichlet
-u = zeros(size(F))
-s1 = 1
-s2 = 3
+lagturtle = zeros(size(F))
+v = [1 3]
 tol = 10.0^(-6)
+vcycle(lagturtle, F, turtles, v)
 
+#=
 uSOR, iterst = SOR(h, 30, tol, F)
 Ua, residual = MG_vcycle(h, F, u, turtles, s1, s2, tol)
 uout, res, maxiter = gauss_sidel(u, h, 1000, tol, 1, F)
@@ -48,7 +48,7 @@ for turtles in [5 6 7]
   tol = 10.0^(-4)
   Ua, residual = MG_vcycle(h, F, u, turtles, s1, s2, tol)
 end
-#=
+
 h = 2.0^(-2)
 funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
 mesh, F = PDEtool.h_space(funcRHS, h)

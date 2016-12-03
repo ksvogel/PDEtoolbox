@@ -6,19 +6,69 @@ This is an implementation of multigrid methods to solve PDEs, specific type is V
 # load PDEtool, which contains all of these functions
 # remember to use module name with module.function notation
 
+######################## recursive function to perform V-cycle
+#=
+turtles       keeps track of which grid level we are on
+lagturtle     estimate for our function from previous level
+F             current R.H.S.
+v             v[1] is our pre-smoothing iterations, v[2] is post-smoothing
+=#
+
+function vcycle(lagturtle::Array{Float64,2}, F::Array{Float64,2}, turtles::Int64, v::Array{Float64,2})
+
+  h = 2.0^(-turtles) # Get the grid spacing
+
+  if turtles > 1
+
+    # Relax v[1] times
+    uturtle, res, iterz = gauss_sidel(lagturtle, h, v[1], 10.0^(-20), 3, F)
+
+    # Restrict residual to coarser grid
+    rescoarse = squish(res)
+
+    # Initial guess for the error we will solve for at each level
+    errturtle = zeros(size(rescoars))
+
+    # SEND THE ERROR TURTLES DOWN, i.e., recursively call vcycle
+    # This solves for the error A e = -r
+    vcycle(errturtle, - rescoarse, turtles-1, v)
+
+    # Interpolate error from previous level to a finer grid
+    errturtle = foomp(errturtle)
+
+    # Correct current level
+    uturtle = uturtle - errturtle
+
+    # Relax v[2] times
+    uturtle, res, iterz = gauss_sidel(uturtle, h, v[2], 10.0^(-20), 3, F)
+
+    return # SEND THE TURTLES BACK UP
+
+  else # When we reach the 3x3 grid with only 1 interior point
+    # Just copy the turtle from the previous level
+    uturtle = lagturtle
+
+    # Direct solve for the single point
+    uturtle = -h/4 * F[2,2]
+
+    # This ends the turtles going all the way down
+    # function will exit and send the turtles all the way up
+
+  end #conditional statement
+
+
+end #function
 
 ######################## function to apply restriction transformation
 #=
  Maps a grid with spacing h to a grid with spacing 2h
 In: M x M 2D array of function values
-Out: M/2 + 1 x M/2 + 1 array of function values
-*     M IS AN ODD NUMBER IN GENERAL
-ADD A WAY TO CATCH UNEVEN M-1
+Out: (M+1)/2 x (M+1)/2 array of function values
 =#
-function squish(vf)
+function squish(vf::Array{Float64,2})
 
-  local M = size(vf,1) # This includes the boundary
-  local mm = convert(Int,(M+1)/2) # restricted array size including boundary
+  M = size(vf,1) # This includes the boundary
+  mm = convert(Int,(M+1)/2) # restricted array size including boundary
 
   vS = zeros(mm, mm)
 
@@ -35,48 +85,23 @@ end #function
 ######################## function to apply interpolation transformation
 #=
  Maps a grid with spacing h to a grid with spacing 2h
-In: M/2 + 1 x M/2 + 1 array of function values
+In: (M+1)/2 x (M+1)/2 array of function values
 Out: M x M 2D array of function values
-
-ADD A WAY TO CATCH UNEVEN M-1
 =#
-function foomp(vs)
-  local mm = size(vs,1)
-  local M = convert(Int,2*mm-1) # doing inner points and then adding boundary
+function foomp(vs::Array{Float64,2})
+  mm = size(vs,1)
+  M = convert(Int,2*mm-1) # doing inner points and then adding boundary
   vF = zeros(M, M)
 
 # Map each point of smaller matrix to a 9x9 matrix in the larger ones
   Ires = 0.25*[1 2 1; 2 4 2; 1 2 1]
 
   for j in 2:mm - 1, k in 2:mm-1
-    p = 2*j - 2
-    q = 2*k - 2
+    p = 2*j-2
+    q = 2*k-2
     vF[p:p+2,q:q+2] = vF[p:p+2,q:q+2] + vs[j,k]*Ires;
   end
-#=
-# Map the points that line up in the course grid and fine grid
-  for j in 0:mm-1, k in 0:mm-1
-    vF[2*j+1,2*k+1] = v[j+1,k+1]
-  end
 
-
-# Interpolate the points directly right and below each corse grid point on fine grid
-  for j in 1:M
-    black = filter(k -> isodd(k+j), 1:M)
-    for k in black
-      if isodd(j)
-        vF[j, k] = 1/2*(vF[j,k-1] + vF[j,k+1])
-      else
-        vF[j, k] = 1/2*(vF[j-1,k] + vF[j+1,k])
-      end # conditional
-    end # red loop
-  end #j loop
-
-# Interpolate the points on the oposing corner of each 4x4 unit of fine grid
-  for j in 2:2:M-1, k in 2:2:M-1
-    vF[j,k] = 1/4*(vF[j-1,k-1] + vF[j+1, k-1] + vF[j-1,k+1] + vF[j+1,k+1])
-  end
-=#
   return vF
 
 end #function
