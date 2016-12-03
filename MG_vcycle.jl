@@ -113,12 +113,11 @@ function turtlesallthewayup(Ua, turtles, Fs, h, s1, s2)
   #println("We are at turtle level $turtles")
   hr = h/2 # fine the grid, it should pay
   corr = foomp(Ua[turtles-1]) # interpolate error from previous grid
-  v = Ua[turtles]
+  v = Ua[turtles] + corr
   cnorm = vecnorm(corr, 2)
   println("corr is $cnorm")
-  Ua[turtles] = copy(v)
   # Relax s2 times
-  e_h, r_h, maxiter = gauss_sidel(Ua[turtles], hr, s2, 10.0^(-50), 1, Fs[turtles])
+  e_h, r_h, maxiter = gauss_sidel(v, hr, s2, 10.0^(-50), 1, Fs[turtles])
   Ua[turtles] = copy(e_h)
   println(vecnorm(r_h,2))
 
@@ -185,7 +184,7 @@ function MG_vcycle(h, F, u, turtles, s1, s2, tol)
 
     end
     # Check if relative residual error is less than tolerance
-    v = Ua[turtles]
+    v = copy(Ua[turtles])
     residual = rescalc(v, hf, F)
   println("beep")
   return Ua, residual
