@@ -33,7 +33,7 @@ function rescalc(u, h, F)
   residual = zeros(M, M)
 
   for j in 2:M-1, k in 2:M-1
-    residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k]) - F[j,k]
+    residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k])
   end
 
   return residual
@@ -79,7 +79,6 @@ end # function
 
 function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float64, rb, F::Array{Float64,2})
 
-  local residual = zeros(size(u,2), size(u,2))
   local M = size(u, 2)
   # Run the iterations
   V = zeros(size(u))
@@ -110,7 +109,9 @@ function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float
 =#
       iterdiff = vecnorm(u-V,1)
       residual = rescalc(u, h, F)
-      if vecnorm(residual,1) < tol*vecnorm(F,1) #if iterdiff < tol*vecnorm(u)
+
+      #if vecnorm(residual,1) < tol*vecnorm(F,1)
+      if iterdiff < tol*vecnorm(u)
         println("Tolerance reached after $iter iterations")
         #residual = rescalc(u)
         return u, residual, iter
@@ -119,11 +120,7 @@ function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float
       V = copy(u)
   end # iteration loop
   #println("Tolerance not reached")
-  residual = zeros(size(u,2), size(u,2))
-
-  for j in 2:M-1, k in 2:M-1
-    residual[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k]) - F[j,k]
-  end
+  residual = rescalc(u, h, F)
   return u, residual, maxiter
 
   #####
@@ -154,7 +151,7 @@ function SOR(h::Float64, maxiter::Int64, tol::Float64, F::Array{Float64,2})
 
     iterdiff = vecnorm(u-V,1)
     residual = rescalc(u, h, F)
-    if vecnorm(residual,1) < tol*vecnorm(F,1) #if iterdiff < tol*vecnorm(u)
+    if iterdiff < tol*vecnorm(u)
       println("Tolerance reached after $iter iterations")
       #residual = rescalc(u)
       return u, residual, iter

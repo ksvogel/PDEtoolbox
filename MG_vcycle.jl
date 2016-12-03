@@ -17,8 +17,8 @@ ADD A WAY TO CATCH UNEVEN M-1
 =#
 function squish(vf)
 
-  M = size(vf,1) # This includes the boundary
-  mm = convert(Int,(M+1)/2) # restricted array size including boundary
+  local M = size(vf,1) # This includes the boundary
+  local mm = convert(Int,(M+1)/2) # restricted array size including boundary
 
   vS = zeros(mm, mm)
 
@@ -41,8 +41,8 @@ Out: M x M 2D array of function values
 ADD A WAY TO CATCH UNEVEN M-1
 =#
 function foomp(vs)
-  mm = size(vs,1)
-  M = convert(Int,2*mm-1) # doing inner points and then adding boundary
+  local mm = size(vs,1)
+  local M = convert(Int,2*mm-1) # doing inner points and then adding boundary
   vF = zeros(M, M)
 
 # Map each point of smaller matrix to a 9x9 matrix in the larger ones
@@ -86,27 +86,28 @@ end #function
 function turtlesallthewaydown(Ua, turtles, Fs, Rs,  hs, s1, s2)
 
   turtles -= 1
-  #println("We have $turtles turtles to go")
-  f_2h = squish(Rs[turtles+1]) # restrict the residual to coarser grid
-  Fs[turtles] = copy(f_2h)
+  #println("We have $turtles turtles to go, h is $(hs[turtles])")
+  local f_prev = copy(Rs[turtles+1])
+  local f_2hd = squish(f_prev) # restrict the residual to coarser grid
+  Fs[turtles] = copy(f_2hd)
 
   # Relax s1 times
-  e_2h, r_2h, iterz = gauss_sidel(zeros(size(f_2h)), hs[turtles], s1, 10.0^(-20), 1, Fs[turtles])
-  Ua[turtles] = copy(e_2h)
-  Rs[turtles] = copy(r_2h)
-  println(vecnorm(f_2h,2))
-  println(vecnorm(r_2h,2))
+  e_2hd, rz, iterz = gauss_sidel(zeros(size(f_2hd)), hs[turtles], s1, 10.0^(-20), 1, Fs[turtles])
+  Ua[turtles] = copy(e_2hd)
+  Rs[turtles] = copy(rz)
+  println(vecnorm(rz,2))
   if turtles > 2 # Call this function again, move to next grid
     turtlesallthewaydown(Ua, turtles, Fs, Rs,  hs, s1, s2)
   else # Direct solve rather than relax on coarsest grid
     #CURRENTLY STILL ITERATIVE
     turtles -= 1
     #println("This is the final turtle")
-    f_4h = squish(Rs[turtles+1]) # restrict the residual to coarser grid
-    E, R, iterz = gauss_sidel(zeros(size(f_4h)), hs[turtles], 1000, 10.0^(-10), 1, f_4h)
-    Fs[turtles] = copy(f_2h)
-    Ua[turtles] = zeros(size(f_4h)) #copy(E)
-    println("final residual $R")
+    f_prevfinal = copy(Rs[turtles+1])
+    f_4h = squish(f_prevfinal) # restrict the residual to coarser grid
+    E = zeros(3,3)
+    hfinal = copy(hs[turtles])
+    E[2,2] = -hfinal/4 * f_4h[2,2]
+    Ua[turtles] = copy(E)
 
     return Ua, Fs, Rs
   end #conditional
@@ -118,20 +119,21 @@ end #function
 function turtlesallthewayup(Ua, Rs, turtles, Fs, hs, s1, s2)
 
   turtles += 1
-  #println("We are at turtle level $turtles")
-  corr = foomp(Ua[turtles-1]) # interpolate error from previous grid
-  Uacorrect = Ua[turtles] + corr
+  println("We are at turtle level $turtles")
+  e_prev = copy(Ua[turtles-1])
+  corr = foomp(e_prev) # interpolate error from previous grid
+  Uacorrect = copy(Ua[turtles]) - corr
   cnorm = vecnorm(corr, 2)
   println("corr is $cnorm")
   # Relax s2 times
-  e_h, r_h, iterz = gauss_sidel(Uacorrect, hs[turtles], s2, 10.0^(-50), 1, Fs[turtles])
-  Ua[turtles] = copy(e_h)
-  Rs[turtles] = copy(r_h)
-  println(vecnorm(r_h,2))
+  e_hup, r_hup, iterz = gauss_sidel(Uacorrect, hs[turtles], s2, 10.0^(-50), 1, Fs[turtles])
+  Ua[turtles] = copy(e_hup)
+  Rs[turtles] = copy(r_hup)
+  println(vecnorm(r_hup,2))
 
 
-  if turtles <  size(Ua,1)# Call this function again, move up to next grid
-    turtlesallthewayup(Ua, turtles, Fs, hr, s1, s2)
+  if turtles <  size(hs,1)# Call this function again, move up to next grid
+    turtlesallthewayup(Ua, Rs, turtles, Fs, hs, s1, s2)
   else
     return Ua, Fs, Rs
   end #conditional
@@ -151,8 +153,8 @@ F   RHS of original PDE descritized and evaluated on fine grid
 
 function MG_vcycle(h, F, u0, turtles, s1, s2, tol)
 
-  hs = [j*h for j in turtles:1] # Vector to store all the grid spacing
-  Rs = zeros(turtles) # Vector to store residuals at each level
+  hs = [(2.0^j)*h for j in turtles-1:-1:0] # Vector to store all the grid spacing
+  Rs = [u0 for k in 1:turtles] # Vector to store residuals at each level
   turtletrack = copy(turtles)
 
   M = size(F,2)
@@ -162,28 +164,31 @@ function MG_vcycle(h, F, u0, turtles, s1, s2, tol)
   # Array of arrays that will hold the RHS at each level
   Fs = [F for k in 1:turtles]
 
-  maxiter = 5
+  maxiter = 100
 
   for iter in 1:maxiter
     # Reset level counter
     turtles = copy(turtletrack)
 
     # Relax s1 times
-    uoutz, r_h, iterz = gauss_sidel(Ua[turtles], hf, s1, 10.0^(-20), 3, F)
+    uoutz, r_h, iterz = gauss_sidel(Ua[turtles], hs[end], s1, 10.0^(-20), 3, F)
     println(vecnorm(r_h,2))
 
     # Store the new estimation of u, uout
     Ua[turtles] = copy(uoutz)
+    Rs[turtles] = copy(r_h)
 
     # Start the process of restriction and working on coarser grids
     Ua, Fs, Rs = turtlesallthewaydown(Ua, turtles, Fs, Rs,  hs, s1, s2)
 
     # AND NOW TO START CORRECTING INITIAL GUESSES
-    Ua, Fs, Rs = turtlesallthewayup(Ua, 1, Fs, hs, s1, s2)
+    Ua, Fs, Rs = turtlesallthewayup(Ua, Rs, 1, Fs, hs, s1, s2)
 
     # Check if relative residual error is less than tolerance
     v = copy(Ua[turtles])
-    residual = rescalc(v, hf, F)
+    residual = rescalc(v, hs[end], F)
+    res = vecnorm(residual,2)
+    println("residual after cycle $res")
 
       if vecnorm(residual,1) < tol*vecnorm(F,1)
         println("V-cycle - tolerance reached after $iter iterations")
@@ -193,7 +198,7 @@ function MG_vcycle(h, F, u0, turtles, s1, s2, tol)
     end
     # Check if relative residual error is less than tolerance
     v = copy(Ua[turtles])
-    residual = rescalc(v, hf, F)
+    residual = rescalc(v, hs[end], F)
   println("beep")
   return Ua, residual
 
