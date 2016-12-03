@@ -79,8 +79,8 @@ end # function
 
 function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float64, rb, F::Array{Float64,2})
 
-  residual = zeros(size(u,2), size(u,2))
-  M = size(u, 2)
+  local residual = zeros(size(u,2), size(u,2))
+  local M = size(u, 2)
   # Run the iterations
   V = zeros(size(u))
 
@@ -151,7 +151,7 @@ function SOR(h::Float64, maxiter::Int64, tol::Float64, F::Array{Float64,2})
         u[j,k] = w*( 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - h^(2.0) * F[j,k])) + (1-w)*u[j,k]
       end
     end
-    
+
     iterdiff = vecnorm(u-V,1)
     residual = rescalc(u, h, F)
     if vecnorm(residual,1) < tol*vecnorm(F,1) #if iterdiff < tol*vecnorm(u)

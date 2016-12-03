@@ -15,9 +15,9 @@ Out: M/2 + 1 x M/2 + 1 array of function values
 *     M IS AN ODD NUMBER IN GENERAL
 ADD A WAY TO CATCH UNEVEN M-1
 =#
-function squish(v)
+function squish(vf)
 
-  M = size(v,1) # This includes the boundary
+  M = size(vf,1) # This includes the boundary
   mm = convert(Int,(M+1)/2) # restricted array size including boundary
 
   vS = zeros(mm, mm)
@@ -25,7 +25,7 @@ function squish(v)
   for j in 4:2:M-1, k in 4:2:M-1
     l = convert(Int,j/2)
     p = convert(Int, k/2)
-    vS[l,p] = 1/16 * (v[j-1,k-1] + v[j-1,k+1] + v[j+1,k-1] + v[j+1,k+1] + 2*(v[j,k+1] + v[j-1,k] + v[j, k-1] + v[j+1,k]) + 4*v[j,k])
+    vS[l,p] = 1/16 * (vf[j-1,k-1] + vf[j-1,k+1] + vf[j+1,k-1] + vf[j+1,k+1] + 2*(vf[j,k+1] + vf[j-1,k] + vf[j, k-1] + vf[j+1,k]) + 4*vf[j,k])
   end
 
   return vS
@@ -40,11 +40,20 @@ Out: M x M 2D array of function values
 
 ADD A WAY TO CATCH UNEVEN M-1
 =#
-function foomp(v)
-  mm = size(v,1)
+function foomp(vs)
+  mm = size(vs,1)
   M = convert(Int,2*mm-1) # doing inner points and then adding boundary
-  vF = ones(M, M)
+  vF = zeros(M, M)
 
+# Map each point of smaller matrix to a 9x9 matrix in the larger ones
+  Ires = 0.25*[1 2 1; 2 4 2; 1 2 1]
+
+  for j in 2:mm - 1, k in 2:mm-1
+    p = 2*j - 2
+    q = 2*k - 2
+    vF[p:p+2,q:q+2] = vF[p:p+2,q:q+2] + vs[j,k]*Ires;
+  end
+#=
 # Map the points that line up in the course grid and fine grid
   for j in 0:mm-1, k in 0:mm-1
     vF[2*j+1,2*k+1] = v[j+1,k+1]
@@ -67,65 +76,64 @@ function foomp(v)
   for j in 2:2:M-1, k in 2:2:M-1
     vF[j,k] = 1/4*(vF[j-1,k-1] + vF[j+1, k-1] + vF[j-1,k+1] + vF[j+1,k+1])
   end
-
+=#
   return vF
 
 end #function
 
 ##################### Function to move recursively down the grid levels
 
-function turtlesallthewaydown(Ua, turtles, Fs, r_h,  h, s1, s2)
+function turtlesallthewaydown(Ua, turtles, Fs, Rs,  hs, s1, s2)
 
   turtles -= 1
   #println("We have $turtles turtles to go")
-  hr = 2*h # coarse the grid
-  f_2h = squish(r_h) # restrict the residual to coarser grid
+  f_2h = squish(Rs[turtles+1]) # restrict the residual to coarser grid
   Fs[turtles] = copy(f_2h)
 
   # Relax s1 times
-  e_2h, r_2h, maxiter = gauss_sidel(zeros(size(f_2h)), hr, s1, 10.0^(-20), 1, Fs[turtles])
+  e_2h, r_2h, iterz = gauss_sidel(zeros(size(f_2h)), hs[turtles], s1, 10.0^(-20), 1, Fs[turtles])
   Ua[turtles] = copy(e_2h)
+  Rs[turtles] = copy(r_2h)
   println(vecnorm(f_2h,2))
   println(vecnorm(r_2h,2))
   if turtles > 2 # Call this function again, move to next grid
-    turtlesallthewaydown(Ua, turtles, Fs, r_2h,  hr, s1, s2)
+    turtlesallthewaydown(Ua, turtles, Fs, Rs,  hs, s1, s2)
   else # Direct solve rather than relax on coarsest grid
     #CURRENTLY STILL ITERATIVE
     turtles -= 1
     #println("This is the final turtle")
-    he = 2*hr # coarse the grid
-    f_4h = squish(r_2h) # restrict the residual to coarser grid
-    E, R, maxiter = gauss_sidel(zeros(size(f_4h)), he, 1000, 10.0^(-10), 1, f_4h)
+    f_4h = squish(Rs[turtles+1]) # restrict the residual to coarser grid
+    E, R, iterz = gauss_sidel(zeros(size(f_4h)), hs[turtles], 1000, 10.0^(-10), 1, f_4h)
     Fs[turtles] = copy(f_2h)
     Ua[turtles] = zeros(size(f_4h)) #copy(E)
     println("final residual $R")
 
-    return Ua, Fs
+    return Ua, Fs, Rs
   end #conditional
 
 end #function
 
 ##################### Function to move recursively up the grid levels
 
-function turtlesallthewayup(Ua, turtles, Fs, h, s1, s2)
+function turtlesallthewayup(Ua, Rs, turtles, Fs, hs, s1, s2)
 
   turtles += 1
   #println("We are at turtle level $turtles")
-  hr = h/2 # fine the grid, it should pay
   corr = foomp(Ua[turtles-1]) # interpolate error from previous grid
-  v = Ua[turtles] + corr
+  Uacorrect = Ua[turtles] + corr
   cnorm = vecnorm(corr, 2)
   println("corr is $cnorm")
   # Relax s2 times
-  e_h, r_h, maxiter = gauss_sidel(v, hr, s2, 10.0^(-50), 1, Fs[turtles])
+  e_h, r_h, iterz = gauss_sidel(Uacorrect, hs[turtles], s2, 10.0^(-50), 1, Fs[turtles])
   Ua[turtles] = copy(e_h)
+  Rs[turtles] = copy(r_h)
   println(vecnorm(r_h,2))
 
 
   if turtles <  size(Ua,1)# Call this function again, move up to next grid
     turtlesallthewayup(Ua, turtles, Fs, hr, s1, s2)
   else
-    return Ua, Fs
+    return Ua, Fs, Rs
   end #conditional
 
 end #function
@@ -141,15 +149,15 @@ F   RHS of original PDE descritized and evaluated on fine grid
 
   =#
 
-function MG_vcycle(h, F, u, turtles, s1, s2, tol)
+function MG_vcycle(h, F, u0, turtles, s1, s2, tol)
 
-  hf = copy(h) # spacing on finest grid
-  hc = turtles*h # Get the spacing of the coarsest grid
+  hs = [j*h for j in turtles:1] # Vector to store all the grid spacing
+  Rs = zeros(turtles) # Vector to store residuals at each level
   turtletrack = copy(turtles)
 
   M = size(F,2)
   # Array of arrays that will hold the approx sol. at each level
-  Ua = [u for k in 1:turtles]
+  Ua = [u0 for k in 1:turtles]
 
   # Array of arrays that will hold the RHS at each level
   Fs = [F for k in 1:turtles]
@@ -161,17 +169,17 @@ function MG_vcycle(h, F, u, turtles, s1, s2, tol)
     turtles = copy(turtletrack)
 
     # Relax s1 times
-    uout, r_h, maxiter = gauss_sidel(Ua[turtles], hf, s1, 10.0^(-6), 3, F)
+    uoutz, r_h, iterz = gauss_sidel(Ua[turtles], hf, s1, 10.0^(-20), 3, F)
     println(vecnorm(r_h,2))
 
     # Store the new estimation of u, uout
-    Ua[turtles] = copy(uout)
+    Ua[turtles] = copy(uoutz)
 
     # Start the process of restriction and working on coarser grids
-    Ua, Fs = turtlesallthewaydown(Ua, turtles, Fs, r_h,  hf, s1, s2)
+    Ua, Fs, Rs = turtlesallthewaydown(Ua, turtles, Fs, Rs,  hs, s1, s2)
 
     # AND NOW TO START CORRECTING INITIAL GUESSES
-    Ua, Fs = turtlesallthewayup(Ua, 1, Fs, hc, s1, s2)
+    Ua, Fs, Rs = turtlesallthewayup(Ua, 1, Fs, hs, s1, s2)
 
     # Check if relative residual error is less than tolerance
     v = copy(Ua[turtles])
