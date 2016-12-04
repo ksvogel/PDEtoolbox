@@ -33,7 +33,7 @@ function rescalc(u, h, F)
   lap2D = zeros(M, M)
 
   for j in 2:M-1, k in 2:M-1
-    lap2D[j,k] = h^(-2) * ( u[j-1,k] + u[j+1,k] - 4* u[j,k] + u[j,k-1] + u[j,k+1] )
+    lap2D[j,k] = h^(-2) * ( u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1]  - 4* u[j,k] )
   end
 
   return (F-lap2D)

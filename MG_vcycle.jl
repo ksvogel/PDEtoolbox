@@ -71,7 +71,7 @@ function vcycle(lagturtle::Array{Float64,2}, F::Array{Float64,2}, turtles::Int64
 
     # SEND THE ERROR TURTLES DOWN, i.e., recursively call vcycle
     # This solves for the error A e = -r
-    vcycle(errturtle, - rescoarse, turtles-1, v)
+    errturtle = vcycle(errturtle, - rescoarse, turtles-1, v)
 
     # Interpolate error from previous level to a finer grid
     errturtle = foomp(errturtle)
@@ -89,7 +89,7 @@ function vcycle(lagturtle::Array{Float64,2}, F::Array{Float64,2}, turtles::Int64
     uturtle = lagturtle
 
     # Direct solve for the single point
-    uturtle = -h^2/4 * F[2,2]
+    uturtle[2,2] = -h^2/4 * F[2,2]
 
     # This ends the turtles going all the way down
     # function will exit and send the turtles all the way up
@@ -111,13 +111,20 @@ function squish(vf::Array{Float64,2})
 
   M = size(vf,1) # This includes the boundary
   mm = convert(Int,(M+1)/2) # restricted array size including boundary
-
+  n=mm
   vS = zeros(mm, mm)
 
   for j in 4:2:M-1, k in 4:2:M-1
     l = convert(Int,j/2)
     p = convert(Int, k/2)
     vS[l,p] = 1/16 * (vf[j-1,k-1] + vf[j-1,k+1] + vf[j+1,k-1] + vf[j+1,k+1] + 2*(vf[j,k+1] + vf[j-1,k] + vf[j, k-1] + vf[j+1,k]) + 4*vf[j,k])
+  end
+
+
+  for j in 2:mm-1, k in 2:mm-1
+          p = convert(Int, 2*j - 1);
+          q = convert(Int, 2*k - 1);
+          vS[i,j] = (1/16)*( vf[p-1,q-1] + 2*vf[p-1,q] + vf[p-1,q+1] + 2*vf[p,q-1] + 4*vf[p,q] + 2*vf[p,q+1] + vf[p+1,q-1] + 2*vf[p+1,q] + vf[p+1,q+1] )
   end
 
   return vS
