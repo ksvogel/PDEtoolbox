@@ -19,10 +19,10 @@ mesh, F = PDEtool.h_space(funcRHS, h)
 # Set up  initial guess and boundary data, this is homogenous Dirichlet
 u0 = zeros(size(F))
 v = [1 3]
-tol = 10.0^(-6)
+tol = 10.0^(-4)
 maxiter = 100
-uturtle = PDEtool.vcycle(u0, F, turtles, v)
-uturtle, residual, iter = PDEtool.multigrid(u0, F, maxiter, tol, turtles, v)
+#uturtle = PDEtool.vcycle(u0, F, turtles, v)
+uturtle, residual, iter = @time PDEtool.multigrid(u0, F, maxiter, tol, turtles, v)
 uSOR, iterst = PDEtool.SOR(h, 30, tol, F)
 iterdiff = vecnorm(uSOR-uturtle)
 

@@ -14,7 +14,7 @@ F             current R.H.S.
 v             v[1] is our pre-smoothing iterations, v[2] is post-smoothing
 =#
 
-function multigrid(u0::Array{Float64,2}, F::Array{Float64,2}, maxiter::Int64, tol::Float64, turtles::Int64, v::Array{Int64,2})
+function multigrid(u0::Array{Float64,2}, F::Array{Float64,2}, maxiter::Int64, tol::Float64, turtles::Int64, v::Array{Float64,1})
 
   # Set up
   uturtle = copy(u0)
@@ -114,17 +114,10 @@ function squish(vf::Array{Float64,2})
   n=mm
   vS = zeros(mm, mm)
 
-  for j in 4:2:M-1, k in 4:2:M-1
-    l = convert(Int,j/2)
-    p = convert(Int, k/2)
-    vS[l,p] = 1/16 * (vf[j-1,k-1] + vf[j-1,k+1] + vf[j+1,k-1] + vf[j+1,k+1] + 2*(vf[j,k+1] + vf[j-1,k] + vf[j, k-1] + vf[j+1,k]) + 4*vf[j,k])
-  end
-
-
   for j in 2:mm-1, k in 2:mm-1
           p = convert(Int, 2*j - 1);
           q = convert(Int, 2*k - 1);
-          vS[i,j] = (1/16)*( vf[p-1,q-1] + 2*vf[p-1,q] + vf[p-1,q+1] + 2*vf[p,q-1] + 4*vf[p,q] + 2*vf[p,q+1] + vf[p+1,q-1] + 2*vf[p+1,q] + vf[p+1,q+1] )
+          vS[j,k] = (1/16)*( vf[p-1,q-1] + 2*vf[p-1,q] + vf[p-1,q+1] + 2*vf[p,q-1] + 4*vf[p,q] + 2*vf[p,q+1] + vf[p+1,q-1] + 2*vf[p+1,q] + vf[p+1,q+1] )
   end
 
   return vS
@@ -154,6 +147,11 @@ function foomp(vs::Array{Float64,2})
   return vF
 
 end #function
+
+##################################################################################
+#HERE THAR BE DRAGONS
+# This code was the messy, nightmare to debug inital attempt at writng a
+# multigrid solver
 
 ##################### Function to move recursively down the grid levels
 
