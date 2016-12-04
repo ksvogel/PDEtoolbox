@@ -33,10 +33,10 @@ function rescalc(u, h, F)
   lap2D = zeros(M, M)
 
   for j in 2:M-1, k in 2:M-1
-    lap2D[j,k] = h^(-2) * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] - 4* u[j,k])
+    lap2D[j,k] = h^(-2) * ( u[j-1,k] + u[j+1,k] - 4* u[j,k] + u[j,k-1] + u[j,k+1] )
   end
 
-  return (lap2D - F)
+  return (F-lap2D)
 
 end
 
@@ -148,9 +148,9 @@ function SOR(h::Float64, maxiter::Int64, tol::Float64, F::Array{Float64,2})
       end
     end
 
-    iterdiff = vecnorm(u-V,1)
+    iterdiff = vecnorm(u-V)
     residual = rescalc(u, h, F)
-    if iterdiff < tol*vecnorm(u,1)
+    if iterdiff < tol*vecnorm(u)
       println("SOR Tolerance reached after $iter iterations")
       #residual = rescalc(u)
       return u, residual, iter

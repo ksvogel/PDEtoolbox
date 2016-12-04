@@ -6,6 +6,46 @@ This is an implementation of multigrid methods to solve PDEs, specific type is V
 # load PDEtool, which contains all of these functions
 # remember to use module name with module.function notation
 
+######################## main function to use multigrid solver
+#=
+turtles       keeps track of which grid level we are on
+lagturtle     estimate for our function from previous level
+F             current R.H.S.
+v             v[1] is our pre-smoothing iterations, v[2] is post-smoothing
+=#
+
+function multigrid(u0::Array{Float64,2}, F::Array{Float64,2}, maxiter::Int64, tol::Float64, turtles::Int64, v::Array{Int64,2})
+
+  # Set up
+  uturtle = copy(u0)
+  uprevious = copy(u0) # Varible to keep track of prev sol
+  h = 2.0^(-turtles) # Get the grid spacing
+
+  # Run the larger loop
+  for iter in 1:maxiter
+
+    # Run the V-cycle
+    uturtle = vcycle(uturtle, F, turtles, v)
+
+    # Check for convergence
+    if vecnorm(uturtle-uprevious) < tol*vecnorm(uturtle)
+      println("V-cycle - tolerance reached after $iter iterations")
+      residual = rescalc(uturtle, h, F)
+      res = vecnorm(residual,2)
+      return uturtle, residual, iter
+    end
+
+    uprevious = copy(uturtle)
+  end #main for loop
+
+  residual = rescalc(uturtle, h, F)
+
+  return uturtle, residual, maxiter
+
+end #function
+
+#################################################################################
+
 ######################## recursive function to perform V-cycle
 #=
 turtles       keeps track of which grid level we are on
@@ -14,7 +54,7 @@ F             current R.H.S.
 v             v[1] is our pre-smoothing iterations, v[2] is post-smoothing
 =#
 
-function vcycle(lagturtle::Array{Float64,2}, F::Array{Float64,2}, turtles::Int64, v::Array{Float64,2})
+function vcycle(lagturtle::Array{Float64,2}, F::Array{Float64,2}, turtles::Int64, v::Array{Int64,2})
 
   h = 2.0^(-turtles) # Get the grid spacing
 
@@ -27,7 +67,7 @@ function vcycle(lagturtle::Array{Float64,2}, F::Array{Float64,2}, turtles::Int64
     rescoarse = squish(res)
 
     # Initial guess for the error we will solve for at each level
-    errturtle = zeros(size(rescoars))
+    errturtle = zeros(size(rescoarse))
 
     # SEND THE ERROR TURTLES DOWN, i.e., recursively call vcycle
     # This solves for the error A e = -r
@@ -42,22 +82,24 @@ function vcycle(lagturtle::Array{Float64,2}, F::Array{Float64,2}, turtles::Int64
     # Relax v[2] times
     uturtle, res, iterz = gauss_sidel(uturtle, h, v[2], 10.0^(-20), 3, F)
 
-    return # SEND THE TURTLES BACK UP
+    return uturtle# SEND THE TURTLES BACK UP
 
   else # When we reach the 3x3 grid with only 1 interior point
     # Just copy the turtle from the previous level
     uturtle = lagturtle
 
     # Direct solve for the single point
-    uturtle = -h/4 * F[2,2]
+    uturtle = -h^2/4 * F[2,2]
 
     # This ends the turtles going all the way down
     # function will exit and send the turtles all the way up
+    return uturtle
 
   end #conditional statement
 
 
 end #function
+########################################################################
 
 ######################## function to apply restriction transformation
 #=

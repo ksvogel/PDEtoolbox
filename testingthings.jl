@@ -11,17 +11,20 @@ end
 
 #include("PDEtool.jl")
 using PDEtool
-
-
 ####### Set up our R.H.S. function
-turtles = 3
+turtles = 4
+h = 2.0^(-turtles)
 funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
-mesh, F = h_space(funcRHS, h)
+mesh, F = PDEtool.h_space(funcRHS, h)
 # Set up  initial guess and boundary data, this is homogenous Dirichlet
-lagturtle = zeros(size(F))
+u0 = zeros(size(F))
 v = [1 3]
-tol = 10.0^(-6)
-vcycle(lagturtle, F, turtles, v)
+tol = 10.0^(-4)
+maxiter = 100
+uturtle = PDEtool.vcycle(u0, F, turtles, v)
+uturtle, residual, iter = PDEtool.multigrid(u0, F, maxiter, tol, turtles, v)
+uSOR, iterst = PDEtool.SOR(h, 30, tol, F)
+iterdiff = vecnorm(uSOR-uturtle)
 
 #=
 uSOR, iterst = SOR(h, 30, tol, F)

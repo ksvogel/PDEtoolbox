@@ -22,13 +22,13 @@ end
 
 
 function recursioncheck(x)
-  y = x
   x -= 1
-  println(y-x)
-  if x > 0
+  y = x
+  println(y)
+  if x != 0
     recursioncheck(x)
   else
-    return y
+    return x
   end
 
 end

@@ -21,7 +21,5 @@ export foomp
 export vcycle
 
 include("badbehavior.jl")
-export parentalunit
-export evilchild
 export recursioncheck
 end
