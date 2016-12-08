@@ -14,6 +14,7 @@ export h_cycle
 export gauss_sidel
 export SOR
 export jacobi_iter
+export laplace_mat2D
 
 include("MG_vcycle.jl")
 export squish

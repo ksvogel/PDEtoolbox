@@ -14,42 +14,59 @@ WHAT IS INITIAL GUESS?????????????
 
 function PCG(u0::Array{Float64,2}, F::Array{Float64,2}, h::Float64, tol::Float64, precon)
 
+#=
+  b = abs(rand(81,81))
+  A = -1*(.5(b' + b) + 100*eye(81))
+  a = rand(81,1)
+  println(a)
+  F = A*a
+=#
   # Inititialize things
-  r = rescalc(u0, h, F)
-  p = r
-  u = u0
+  #r = A*(vec(u0)) - vec(F) #rescalc(u0, h, F)
+  #println(r)
+    M = size(u0,1)
+  meep = F[2:end-1,2:end-1]
+  F = zeros(M,M)
+  F[2:end-1,2:end-1] = meep
+r = rescalc(u0, h, F)
+#=
+  M = size(u0,1)
+r = zeros(M, M)
+  u = copy(u0)
+  for j in 2:M-1, k in 2:M-1
+    r[j,k] = F[j,k] - h^(-2) * ( u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1]  - 4* u[j,k] )
+  end
+  =#
+  #println(r)
+  p = copy(r)
+  u = copy(u0)
 
 
   # Precondition
   z = preconditioner(r, r, h, precon)
   ztrnext = dot(vec(z), vec(r))
 
+
   for k in 1:length(z)
 
-    w = applylap(p, h, F)
-    ztr = copy(ztrnext)
+    w = applylap(p, h)
+    ztr = ztrnext
     alpha = ztr/dot(vec(p),vec(w))
-    u = u + alpha * p
-    r = r - alpha * w
-
+    u += alpha * p
+    r -= alpha * w
+    println(vecnorm(r))
     # Stopping condition
     if vecnorm(r) < tol*vecnorm(F,1)
       println("PCG tolerance reached after $k iterations")
       return u, r, k
     end
-
     z = preconditioner(z, r, h, precon)
     ztrnext = dot(vec(z), vec(r))
     beta = ztrnext/ztr
-
-    if precon == "np"
-      p = r
-    else
-      p = z + beta * p
-    end
-
+    p = z + beta * p
 
   end #main loop
+
   k = length(z)
   return u, r, k
 

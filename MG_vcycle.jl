@@ -14,7 +14,7 @@ F             current R.H.S.
 v             v[1] is our pre-smoothing iterations, v[2] is post-smoothing
 =#
 
-function multigrid(u0::Array{Float64,2}, F::Array{Float64,2}, maxiter::Int64, tol::Float64, turtles::Int64, v::Array{Float64,1})
+function multigrid(u0::Array{Float64,2}, F::Array{Float64,2}, maxiter::Int64, tol::Float64, turtles::Int64, v::Array{Int64,2})
 
   # Set up
   uturtle = copy(u0)

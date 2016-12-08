@@ -29,13 +29,13 @@ end #function
 
 ###### Function to calculate the residual
 function rescalc(u, h, F)
-  lap2D = applylap(u, h, F)
+  lap2D = applylap(u, h)
   return (F-lap2D)
 
 end
 
 ###### Function to apply 2D laplacian
-function applylap(u, h, F)
+function applylap(u, h)
   M = size(u,1)
   lap2D = zeros(M, M)
 

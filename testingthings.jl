@@ -1,20 +1,28 @@
 # testing ideas script
 using PDEtool
 
-turtles = 3
+turtles = 4
 h = 2.0^(-turtles)
 funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
+funcRHS = (x,y) -> 2*(x^ + y^2 - x - y)
 mesh, F = PDEtool.h_space(funcRHS, h)
 # Set up  initial guess and boundary data, this is homogenous Dirichlet
 u0 = zeros(size(F))
 tol = 10.0^(-4)
-precon = "MG"
+v = [1 3]
+precon = "SSOR"
+maxiter = 100
 u, r, k = PDEtool.PCG(u0, F, h, tol, precon)
-println(u)
+uturtle, residual, maxiter = PDEtool.multigrid(u0, F, maxiter, tol, turtles, v)
+#=
+println(k)
+println(abs(u - uturtle))
+println(abs(r - residual))
 
-
-
-
+b = abs(rand(9,9))
+B = .5(b' + b) + 100*eye(9)
+eig(B)
+=#
 
 
 #= testing vcycle
