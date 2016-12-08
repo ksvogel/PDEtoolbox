@@ -22,4 +22,8 @@ export vcycle
 
 include("badbehavior.jl")
 export recursioncheck
+
+include("krylov_methods.jl")
+export PCG
+export preconditioner
 end

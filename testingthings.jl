@@ -1,5 +1,23 @@
 # testing ideas script
+using PDEtool
 
+turtles = 3
+h = 2.0^(-turtles)
+funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
+mesh, F = PDEtool.h_space(funcRHS, h)
+# Set up  initial guess and boundary data, this is homogenous Dirichlet
+u0 = zeros(size(F))
+tol = 10.0^(-4)
+precon = "MG"
+u, r, k = PDEtool.PCG(u0, F, h, tol, precon)
+println(u)
+
+
+
+
+
+
+#= testing vcycle
 B = ones(10,10)
 M = 10
 rb = 2:M-1
@@ -26,7 +44,7 @@ uturtle, residual, iter = @time PDEtool.multigrid(u0, F, maxiter, tol, turtles, 
 uSOR, iterst = PDEtool.SOR(h, 30, tol, F)
 iterdiff = vecnorm(uSOR-uturtle)
 
-#=
+
 uSOR, iterst = SOR(h, 30, tol, F)
 Ua, residual = MG_vcycle(h, F, u, turtles, s1, s2, tol)
 uout, res, maxiter = gauss_sidel(u, h, 1000, tol, 1, F)
