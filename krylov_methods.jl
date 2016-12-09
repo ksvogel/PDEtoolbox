@@ -24,46 +24,36 @@ function PCG(u0::Array{Float64,2}, F::Array{Float64,2}, h::Float64, tol::Float64
   # Inititialize things
   #r = A*(vec(u0)) - vec(F) #rescalc(u0, h, F)
   #println(r)
-    M = size(u0,1)
+  M = size(u0,1)
   meep = F[2:end-1,2:end-1]
   F = zeros(M,M)
   F[2:end-1,2:end-1] = meep
-r = rescalc(u0, h, F)
-#=
-  M = size(u0,1)
-r = zeros(M, M)
+  r = rescalc(u0, h, F)
   u = copy(u0)
-  for j in 2:M-1, k in 2:M-1
-    r[j,k] = F[j,k] - h^(-2) * ( u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1]  - 4* u[j,k] )
-  end
-  =#
-  #println(r)
-  p = copy(r)
-  u = copy(u0)
-
-
   # Precondition
-  z = preconditioner(r, r, h, precon)
-  ztrnext = dot(vec(z), vec(r))
-
+  z = preconditioner(u0, r, h, precon)
+  p = copy(z)
 
   for k in 1:length(z)
 
     w = applylap(p, h)
-    ztr = ztrnext
-    alpha = ztr/dot(vec(p),vec(w))
-    u += alpha * p
-    r -= alpha * w
+    alpha = dot(vec(z), vec(r))/dot(vec(p),vec(w))
+    println(alpha)
+    r0 = copy(r)
+    r = r0 - alpha * w
+    u = u + alpha * p
     println(vecnorm(r))
     # Stopping condition
-    if vecnorm(r) < tol*vecnorm(F,1)
+    if vecnorm(r) < tol
       println("PCG tolerance reached after $k iterations")
       return u, r, k
     end
-    z = preconditioner(z, r, h, precon)
-    ztrnext = dot(vec(z), vec(r))
-    beta = ztrnext/ztr
+    z0 = copy(z)
+    z = preconditioner(u0, r, h, precon)
+    beta = dot(vec(z), vec(r))/dot(vec(z0), vec(r0))
+    println(beta)
     p = z + beta * p
+
 
   end #main loop
 
@@ -92,30 +82,36 @@ function preconditioner(z0, r0, h, precon)
 
   if precon == "np"
     z0 = r0
+    return z0
 
   elseif precon == "SSOR"
+    z0 = zeros(size(r0))
+
     # Calculate optimal omega
     w = 2.0/(1+sin(h*pi))
 
-    # 1 Sweep of SSOR
-    for j in 2:M-1
-      for k in 2:M-1
+
+    for j in 2:M-1, k in 2:M-1
         # Forward Sweep SOR
-        z0[j,k] = w*( 0.25 * (z0[j-1,k] + z0[j+1,k] + z0[j,k-1] + z0[j,k+1] - h^(2.0) * r0[j,k])) + (1-w)*z0[j,k]
-        # Backward Sweep SOR
-        z0[j,k] = w*( 0.25 * (z0[j-1,k] + z0[j+1,k] + z0[j,k-1] + z0[j,k+1] - h^(2.0) *r0[j,k])) + (1-w)*z0[j,k]
-      end
+        z0[j,k] = (w/4) *(z0[j-1,k] + z0[j+1,k] +  z0[j,k-1] + z0[j,k+1] - h^(2.0) * r0[j,k]) + (1-w)*z0[j,k]
     end
 
+    for j in M-1:-1:2, k in M-1:-1:2
+        # Backward sweep of SOR
+        z0[j,k] = (w/4) *(z0[j-1,k] + z0[j+1,k] +  z0[j,k-1] + z0[j,k+1] - h^(2.0) * r0[j,k]) + (1-w)*z0[j,k]
+    end
+
+    return z0
+
   elseif precon == "MG"
-    turtles = Int(- log(h)/log(2)) # will need to convert to int
-    v = [2 2]
-    z0, residual, maxiter = multigrid(zeros(size(r0)), r0, 1, 10.0^(-4), turtles, v)
+      z0 = zeros(size(r0))
+      turtles = Int(- log(h)/log(2)) # will need to convert to int
+      v = [1 1]
+      z0 = vcycle(z0, r0, turtles, v)
+      return z0
 
   else
-    println("No precondition option specified, program exited")
+    println("No precondition option specifiedprogram exited")
   end # precondition conditional
-
-  return z0
-
-end
+  println("I got here")
+end #function

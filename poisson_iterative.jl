@@ -20,7 +20,7 @@ function h_space(funcRHS::Function, h::Float64)
   F = zeros(M,M)
 
   for j in 1:M, k in 1:M
-      F[j,k] = funcRHS(mesh[j],mesh[k])
+      F[j,k] = funcRHS(mesh[k],mesh[j])
   end
 
   return mesh,F
@@ -100,11 +100,36 @@ function gauss_sidel(u::Array{Float64,2}, h::Float64, maxiter::Int64, tol::Float
           for k in red
             u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] -  h^(2.0) * F[j,k])
           end # red loop
-
+        end
+          for j in 2:M-1
+            rs = filter(k -> iseven(k+j), 2:M-1)
+            red = convert(Array{Int64,1}, rs)
+            bs = filter(k -> isodd(k+j), 2:M-1)
+            black = convert(Array{Int64,1}, bs)
           for k in black
             u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] -  h^(2.0) * F[j,k])
           end # black loop
         end #outer
+
+        for j in 2:M-1
+          rs = filter(k -> iseven(k+j), 2:M-1)
+          red = convert(Array{Int64,1}, rs)
+          bs = filter(k -> isodd(k+j), 2:M-1)
+          black = convert(Array{Int64,1}, bs)
+        for k in black
+          u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] -  h^(2.0) * F[j,k])
+        end # black loop
+      end #outer
+
+      for j in 2:M-1
+        rs = filter(k -> iseven(k+j), 2:M-1)
+        red = convert(Array{Int64,1}, rs)
+        bs = filter(k -> isodd(k+j), 2:M-1)
+        black = convert(Array{Int64,1}, bs)
+          for k in red
+            u[j,k] = 0.25 * (u[j-1,k] + u[j+1,k] + u[j,k-1] + u[j,k+1] -  h^(2.0) * F[j,k])
+          end # red loop
+        end
         #=
         if rb == 'rb'
       else

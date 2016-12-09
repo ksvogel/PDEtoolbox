@@ -62,6 +62,7 @@ function vcycle(lagturtle::Array{Float64,2}, F::Array{Float64,2}, turtles::Int64
 
     # Relax v[1] times
     uturtle, res, iterz = gauss_sidel(lagturtle, h, v[1], 10.0^(-20), 3, F)
+    #uturtle, res, iterz = gauss_sidel(lagturtle, h, v[1], 10.0^(-20), 3, F)
 
     # Restrict residual to coarser grid
     rescoarse = squish(res)
