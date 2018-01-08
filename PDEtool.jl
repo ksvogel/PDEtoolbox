@@ -27,4 +27,10 @@ export recursioncheck
 include("krylov_methods.jl")
 export PCG
 export preconditioner
+
+
+include("finitedifferencemethods_hyperbolic_parabolic.jl")
+export meshmaker
+export CN_heat
+
 end

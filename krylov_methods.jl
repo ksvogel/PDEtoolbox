@@ -13,18 +13,7 @@ WHAT IS INITIAL GUESS?????????????
 =#
 
 function PCG(u0::Array{Float64,2}, F::Array{Float64,2}, h::Float64, tol::Float64, precon)
-
-#=
-  b = abs(rand(81,81))
-  A = -1*(.5(b' + b) + 100*eye(81))
-  a = rand(81,1)
-  println(a)
-  F = A*a
-=#
-  # Inititialize things
-  #r = A*(vec(u0)) - vec(F) #rescalc(u0, h, F)
-  #println(r)
-  M = size(u0,1)
+  M = size(u0,2)
   meep = F[2:end-1,2:end-1]
   F = zeros(M,M)
   F[2:end-1,2:end-1] = meep
@@ -38,11 +27,9 @@ function PCG(u0::Array{Float64,2}, F::Array{Float64,2}, h::Float64, tol::Float64
 
     w = applylap(p, h)
     alpha = dot(vec(z), vec(r))/dot(vec(p),vec(w))
-    println(alpha)
     r0 = copy(r)
     r = r0 - alpha * w
     u = u + alpha * p
-    println(vecnorm(r))
     # Stopping condition
     if vecnorm(r) < tol
       println("PCG tolerance reached after $k iterations")
@@ -51,7 +38,6 @@ function PCG(u0::Array{Float64,2}, F::Array{Float64,2}, h::Float64, tol::Float64
     z0 = copy(z)
     z = preconditioner(u0, r, h, precon)
     beta = dot(vec(z), vec(r))/dot(vec(z0), vec(r0))
-    println(beta)
     p = z + beta * p
 
 

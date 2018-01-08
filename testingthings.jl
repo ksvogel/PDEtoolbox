@@ -1,39 +1,22 @@
 # testing ideas script
 using PDEtool
+using JLD
 
-turtles = 3
+d = load("f1.jld")
+F = d["F"]
+turtles = 4
 h = 2.0^(-turtles)
-funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
+#funcRHS = (x,y) -> -exp(-(x - 0.25)^2 - (y - 0.6)^2)
 #funcRHS = (x,y) -> 2*(x^ + y^2 - x - y)
-mesh, F = PDEtool.h_space(funcRHS, h)
+#mesh, F = PDEtool.h_space(funcRHS, h)
 # Set up  initial guess and boundary data, this is homogenous Dirichlet
 u0 = zeros(size(F))
 tol = 10.0^(-10)
 v = [1 3]
-precon = "np"
+precon = "SSOR"
 maxiter = 100
 u, r, k = PDEtool.PCG(u0, F, h, tol, precon)
 uturtle, residual, maxiter = PDEtool.multigrid(u0, F, maxiter, tol, turtles, v)
-
-M = size(F,2)
-r0 = ones(M,M)
-z0 = eye(M)
-z0[1,1] = 0
-z0[M,M] = 0
-w = 2.0/(1+sin(h*pi))
-
-for k in M-1:-1:2, j in M-1:-1:2
-    # Backward sweep of SOR
-    z0[j,k] = w*( 0.25 * (z0[j-1,k] + z0[j+1,k] + z0[j,k-1] + z0[j,k+1] - h^(2.0) * r0[j,k])) + (1-w)*z0[j,k]
-  end
-
-
-for j in 2:M-1, k in 2:M-1
-      # Forward Sweep SOR
-      z0[j,k] = w*( 0.25 * (z0[j-1,k] + z0[j+1,k] + z0[j,k-1] + z0[j,k+1] - h^(2.0) * r0[j,k])) + (1-w)*z0[j,k]
-  end
-
-
 
 #=
 println(k)

@@ -14,16 +14,17 @@ funcRHS anonymous function, e.g. (x,y) -> x^2+y
 
 =#
 
-function h_space(funcRHS::Function, h::Float64)
-  mesh = [j for j in 0:h:1]
+function h_space(funcRHS::Function, h::Float64, k::Float64)
+  hmesh = [j for j in 0:h:1]
+  kmesh = [j for j in 0:k:1]
   M = length(mesh)
   F = zeros(M,M)
 
   for j in 1:M, k in 1:M
-      F[j,k] = funcRHS(mesh[k],mesh[j])
+      F[j,k] = funcRHS(hmesh[k], kmesh[j])
   end
 
-  return mesh,F
+  return hmesh, kmesh, F
 
 end #function
 
