@@ -29,8 +29,12 @@ export PCG
 export preconditioner
 
 
-include("finitedifferencemethods_hyperbolic_parabolic.jl")
+include("FDM_hyperbolic_parabolic.jl")
 export meshmaker
 export CN_heat
+export refinement_ratios
+export BDF2_heat
+
+include("pde_visualizer.jl")
 
 end

@@ -32,3 +32,22 @@ function recursioncheck(x)
   end
 
 end
+
+
+b = [1 2; 3 4]
+d = Vector{Int64}(3)
+
+for i in 1:3
+  a = copy(b)
+  println(a)
+  c = a[1,1]
+  d[i] = c
+
+end
+
+A = zeros(9,9)
+
+for i in 1:9, j in 1:9
+  A[i,j] = i+j
+
+end
