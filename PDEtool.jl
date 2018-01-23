@@ -35,6 +35,6 @@ export CN_heat
 export refinement_ratios
 export BDF2_heat
 
-include("pde_visualizer.jl")
+#include("pde_visualizer.jl")
 
 end

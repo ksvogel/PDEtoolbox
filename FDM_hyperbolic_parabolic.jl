@@ -61,7 +61,7 @@ function CN_heat(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1
 
     #################### Set up the matrix to solve at each time step
     # Note: We only use this matrix to solve for the inner points, so it
-    # has dimensions
+    # has dimensions (M-2)x(M-2)
     r = (a*k)/(2*h^2)
     du = -r * ones(M-3)
     d  = (1+2*r) * ones(M-2)
@@ -115,7 +115,7 @@ function BDF2_heat(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u
     v[1, 1:T] = u_0t.(kmesh) # boundary condition 1
     v[M, 1:T] = u_1t.(kmesh) # boundary condition 2
 
-    #################### Set up the laplacian maatrix and the transform it to match BDF2 form.
+    #################### Set up the laplacian maatrix and the transform it to match BDF2 form. # Note: We only use this matrix to solve for the inner points, so it has dimensions (M-2)x(M-2)
 
     r = (2*a*k)*(1/h^2)
     du = 1.0 * ones(M-3)
@@ -167,9 +167,6 @@ end #function
 
 
 
-
-
-
 ############################################################################
 
 #=
@@ -182,21 +179,16 @@ function refinement_ratios(v_unrefined::Vector{Any})
 
 # Set up the grid restriction operator
 # WARNING: This if for grid spacing using powers of 2, e.g. h = 1/2^6
-# Restriction operator takes every 2i + 1 index
+# Restriction operator takes every 2i + 1 index of the finer grid
 
     v_restricteds = Vector{Any}(length(v_unrefined)-1) # This will store the newly restricted solutions v
 
-
+    # Restrict every MxM grid to a (M-1)/2 X (M-1)/2 grid
     for j in 2: length(v_unrefined)
-
         squishing = copy(v_unrefined[j])
-
-
         newgridlength = Int64((size(squishing,1)-1)/2)
-        #restricted = squishing[[2*i+1 for i in  0:1:newgridlength], [2*i+1 for i in  0:1:newgridlength]]
-
-
-         restricted = PDEtool.squish(squishing)
+        newgridwidth = Int64((size(squishing,2)-1)/2)
+        restricted = squishing[[2*i+1 for i in  0:1:newgridlength], [2*i+1 for i in  0:1:newgridwidth]]
         v_restricteds[j-1] = copy(restricted)
     end # restricting
 
@@ -206,8 +198,8 @@ function refinement_ratios(v_unrefined::Vector{Any})
     refinedratio = Vector{Float64}(refinedratio_length)
 
     for j in 1: (refinedratio_length)
-
-        refinedratio[j] = vecnorm( v_unrefined[j] - v_restricteds[j], 2)/vecnorm( v_unrefined[j+1] - v_restricteds[j+1], 2)
+        # The vecnorm is the appropriate norm here because we want to compare entries
+        refinedratio[j] = vecnorm( v_unrefined[j] - v_restricteds[j], Inf)/vecnorm( v_unrefined[j+1] - v_restricteds[j+1], Inf)
 
     end
 
