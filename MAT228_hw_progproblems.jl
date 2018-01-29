@@ -7,6 +7,36 @@ Homeworks for MAT 228
 
 ##############################################################
 
+#= Homework 2, problem 2
+This is the setup and the function call to solve the heat equation
+
+u_t = \Delta u on  \Omega = (0,1) X (0,1
+u(0,0,t) = 0  boundary
+u(x,y,0) = exp[-100((x - 0.3)^2 + (y - 0.4)^2)]
+
+with Crank-Nicolson 2D and Forward Euler solvers
+
+=#
+include("PDEtool.jl")
+using PDEtool
+using Plots
+plotlyjs()
+
+#cd("/home/kaela/Documents/GithubRepositories/PDE_solvers")
+
+h = 1/2^4 # Grid spacing
+k = 1/2^4 # Tine stepping
+funcRHS( x, y, t) = 0
+u_0t(t) = 0 # boundary condition at x = 0
+u_1t(t) = 0 # boundary condition at x = 1
+u_xy0(x, y)= exp(-100((x - 0.3)^2 + (y - 0.4)^2))
+#_x0(x) = exp.(-(x-.5).^2)-exp.(-.5^2)
+#u_x0(x) = x < 0.5 ? x : 1-x # initial condtion at t = 0
+a =  1.0
+v = PDEtool.CN_heat2D(h, k, funcRHS,  u_0t, u_1t, u_xy0, a)
+
+##############################################################
+
 #= Homework 1, problem 2
 This is the setup and the function call to solve the heat equation
 
@@ -18,12 +48,6 @@ u(x,0) = 0
 with Crank-Nicolson and then perform a refinement study to show it is second order accurate in space and time.
 
 =#
-include("PDEtool.jl")
-using PDEtool
-using Plots
-plotlyjs()
-
-#cd("/home/kaela/Documents/GithubRepositories/PDE_solvers")
 
 h = 1/2^4 # Grid spacing
 k = 1/2^4 # Tine stepping
@@ -48,7 +72,7 @@ for j in 1:length(spacing) # The indexing assumes h and k are equal
     v_unrefined[j] = v
 end
 
-ratios, v_restrictedsCNH = refinement_ratios(v_unrefined)
+ratios, v_restrictedsCNH = refinement_ratios(v_unrefined, spacing, spacing)
 writecsv("hw_1_refinement.txt", ratios)
 
 

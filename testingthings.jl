@@ -1,5 +1,43 @@
 # testing ideas script
 using PDEtool
+
+
+h = 1/2^4 # Grid spacing
+k = 1/2^4 # Tine stepping
+hmesh = [j for j in 0:h:1]
+kmesh = [j for j in 0:k:1]
+M = length(hmesh)
+T = length(kmesh)
+
+funcRHS( x, y) = exp(-100((x - 0.3)^2 + (y - 0.4)^2))
+
+F = zeros(M,M)
+for j in 1:M, k in 1:M
+    F[j,k] = funcRHS(hmesh[j],hmesh[k])
+end
+
+r = (a*k)/(h^2)
+A = PDEtool.laplace_mat2D(h)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#=
 using JLD
 
 d = load("f1.jld")
@@ -17,11 +55,11 @@ precon = "SSOR"
 maxiter = 100
 u, r, k = PDEtool.PCG(u0, F, h, tol, precon)
 uturtle, residual, maxiter = PDEtool.multigrid(u0, F, maxiter, tol, turtles, v)
-
+=#
 #=
 println(k)
 println(abs(u - uturtle))
-println(abs(r - residual))
+println(a bs(r - residual))
 
 b = abs(rand(9,9))
 B = .5(b' + b) + 100*eye(9)
