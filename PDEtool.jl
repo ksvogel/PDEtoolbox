@@ -34,6 +34,9 @@ export meshmaker
 export CN_heat
 export refinement_ratios
 export BDF2_heat
+export CN_heat2D
+export FE_heat2D
+export gauss_sidelCN
 
 #include("pde_visualizer.jl")
 

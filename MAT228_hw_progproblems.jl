@@ -14,27 +14,58 @@ u_t = \Delta u on  \Omega = (0,1) X (0,1
 u(0,0,t) = 0  boundary
 u(x,y,0) = exp[-100((x - 0.3)^2 + (y - 0.4)^2)]
 
-with Crank-Nicolson 2D and Forward Euler solvers
+with Crank-Nicolson 2D and Forward Euler solvers. Both are timed for varying grid sizes.
 
 =#
 include("PDEtool.jl")
 using PDEtool
-using Plots
-plotlyjs()
+#using Plots
+#plotlyjs()
 
 #cd("/home/kaela/Documents/GithubRepositories/PDE_solvers")
 
-h = 1/2^4 # Grid spacing
-k = 1/2^4 # Tine stepping
-funcRHS( x, y, t) = 0
+a =  0.1
+h = 1/2^5 # Grid spacing
+k = h^2/(4*a)# Tine stepping
+funcRHS( x, t) = 0
 u_0t(t) = 0 # boundary condition at x = 0
 u_1t(t) = 0 # boundary condition at x = 1
-u_xy0(x, y)= exp(-100((x - 0.3)^2 + (y - 0.4)^2))
-#_x0(x) = exp.(-(x-.5).^2)-exp.(-.5^2)
-#u_x0(x) = x < 0.5 ? x : 1-x # initial condtion at t = 0
-a =  1.0
+u_xy0(x, y)= exp.(-100((x-.5).^2 + (y-.5).^2))
+v = PDEtool.FE_heat2D(h, k, funcRHS,  u_0t, u_1t, u_xy0, a)
+
+# The indexing assumes h and k are equal
+
+a =  0.1
+h = 1/2^8 # Grid spacing
+k = 0.01
+funcRHS( x, t) = 0
+u_0t(t) = 0 # boundary condition at x = 0
+u_1t(t) = 0 # boundary condition at x = 1
+u_xy0(x, y)= exp.(-100((x-.5).^2 + (y-.5).^2)) #-exp.(-.5^2) #exp(-100((x -
 v = PDEtool.CN_heat2D(h, k, funcRHS,  u_0t, u_1t, u_xy0, a)
 
+
+hstart =  3
+hend = 8
+FE_timeeelapsed = zeros(1,hend-hstart+1)
+CN_timeeelapsed = zeros(1,hend-hstart+1)
+spacing = [1/2^j for j in hstart:1:hend]
+
+
+for j in 1:length(spacing)
+
+    FE_timeeelapsed[j] = @elapsed PDEtool.FE_heat2D(spacing[j], spacing[j]^2/(4*a) , funcRHS,  u_0t, u_1t, u_xy0, a)
+
+    #CN_timeeelapsed[j] = @elapsed PDEtool.CN_heat2D(spacing[j], 0.01, funcRHS,  u_0t, u_1t, u_xy0, a)
+
+end
+ratio_CN = zeros(5,1)
+ratio_FE = zeros(5,1)
+for i in 1:5
+    ratio_CN[i] = CN_timeeelapsed[i+1]/CN_timeeelapsed[i]
+    ratio_FE[i] = FE_timeeelapsed[i+1]/FE_timeeelapsed[i]
+
+end
 ##############################################################
 
 #= Homework 1, problem 2
@@ -49,8 +80,8 @@ with Crank-Nicolson and then perform a refinement study to show it is second ord
 
 =#
 
-h = 1/2^4 # Grid spacing
-k = 1/2^4 # Tine stepping
+h = 1/2^5 # Grid spacing
+k = .1 # Tine stepping
 funcRHS( x, t) = 1 - exp.( - t)
 u_0t(t) = 0 # boundary condition at x = 0
 u_1t(t) = 0 # boundary condition at x = 1

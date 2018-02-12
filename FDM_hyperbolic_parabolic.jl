@@ -45,25 +45,23 @@ Crank-Nicolson is an implicit methods and requires solving a matrix at each time
 =#
 using PDEtool
 
-####################### Crank Nicolson, 2 spatial dimensions
-# So rather than save a million matrices I will only save the one for the final timestep
+####################### Forward Euler, 2 spatial dimensions
+# So rather than save a million matrices I will only save the one for the final timestep.  Requires k <= h^2/2a
 
-function CN_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64)
+function FE_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64)
 
 
     #################### Set up the mesh and th e solution vector
     # The solution vector v has increasing y-space going down the colums and increasing x-space going right across columns
 
     hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k)
-    v = zeros(M,M) # numeric solution, only latest timestep
-    rhs = zeros(M-2,M-2) # temp right hand side matrix
-    lhs = zeros(1,(M-2)*(M-2)) # temp left hand side hand side vector
+    v = zeros(M,M) # numeric solution, only latest timestepA = kron(Iy, Lx) + kron(Ly,Ix)
 
     ################### Set up inital and boundary conditions in solution matrix
 
-    # Initial conditions
-    for j in 1:M, k in 1:M
-        v[j,k] = uxy0(hmesh[j], hmesh[k])
+    # Initial conditionsA = kron(Iy, Lx) + kron(Ly,Ix)
+    for j in 1:M, i in 1:M
+        v[j,i] = u_xy0(hmesh[j], hmesh[i])
     end
 
     # Boundary conditions, this function assume boundary is 0
@@ -80,14 +78,76 @@ function CN_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u
     r = (a*k)/(h^2)
     du = 1.0 * ones(M-3)
     d  = - 2.0 * ones(M-2)
-    L = Tridiagonal(du, d, du) # Form the 1D laplacian matrix
-    L2D = kron(eye(M-2), L) + kron(L, eye(M-2)) # Form 2D Laplacian
-    A = eye((M-2)*(M-2)) - (r/2)*L2D
+    L =  Tridiagonal(du, d, du) # Form the 1D laplacian matrix
+    # Am I doing kroneker delta in right place
+    L2D = kron(speye(M-2), sparse(L)) + kron(sparse(L), speye(M-2))
+    A = speye((M-2)*(M-2)) + r*L2D
+
+    ################### Run the solver for time steps 2 to T
+    # This solver uses the 2D laplacian which requires the (M-2)X (M-2) be temporarily transformed to a 1 X(M-2)(M-2) vector in order to do matrix multiplication.
+
+    for i = 2: (T-1) # time stepping loop
+        # I'm just ignoring boundar condition setup because the boundary is 0.
+        rhs = v[2:M-1,2:M-1]
+        rhs = reshape(rhs,(M-2)*(M-2), 1) # julia reshapes columnwise
+        lhs = A*rhs # This will be slow, I don't care
+
+        v[2:M-1, 2:M-1] = reshape(lhs, M-2, M-2)
+
+    end
+    println("Meep")
+
+    return v
+
+
+end #function
+
+
+####################### Crank Nicolson, 2 spatial dimensions
+# So rather than save a million matrices I will only save the one for the final timestep
+
+function CN_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64)
+
+
+    #################### Set up the mesh and th e solution vector
+    # The solution vector v has increasing y-space going down the colums and increasing x-space going right across columns
+
+    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k)
+    v = zeros(M,M) # numeric solution, only latest timestepA = kron(Iy, Lx) + kron(Ly,Ix)
+    #rhs = zeros(M-2,M-2) # temp right hand side matrix
+    lhs = zeros(1,(M-2)*(M-2)) # temp left hand side hand side vector
+
+    ################### Set up inital and boundary conditions in solution matrix
+
+    # Initial conditionsA = kron(Iy, Lx) + kron(Ly,Ix)
+    for j in 1:M, i in 1:M
+        v[j,i] = u_xy0(hmesh[j], hmesh[i])
+    end
+
+    # Boundary conditions, this function assume boundary is 0
+    v[1:M, 1] = 0
+    v[1, 1:M] = 0
+    v[M, 1:M] = 0
+    v[1:M, M] = 0
+
+    #################### Set up the matrix to solve at each time step
+    # Note: We only use this matrix to solve for the inner points, so it
+    # has dimensions (M-2)(M-2) X M-2)(M-2).
+
+    # This is for the LHS, it requires you to form the input spatial matrix into a single long vector.
+    r = (a*k)/(h^2)
+    du = 1.0 * ones(M-3)
+    d  = - 2.0 * ones(M-2)
+    L =  Tridiagonal(du, d, du) # Form the 1D laplacian matrix
+    # Am I doing kroneker delta in right place
+    L2D = kron(speye(M-2), sparse(L)) + kron(sparse(L), speye(M-2))
+    A = speye((M-2)*(M-2)) - (0.5*r)*L2D
     A = factorize(A)
 
     # This is for the %HS, it requires you to form the input spatial matrix into a single long vector.
-    B = eye((M-2)*(M-2)) + (r/2)*L2D
-    B = factorize(B)
+    B = speye((M-2)*(M-2)) + (0.5*r)*L2D
+
+
 
 
     ################### Run the solver for time steps 2 to T
@@ -95,18 +155,32 @@ function CN_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u
 
     for i = 2: (T-1) # time stepping loop
         # I'm just ignoring boundar condition setup because the boundary is 0.  This is the part where we form (1-r/2 L)v^n.
-        rhs = copy[v[2:M-1,2:M-1]]
-        rhs = reshape(matrix,(M-2)*(M-2), 1)
-        rhs = B*rhs # This will be slow, I don't care
+        lhs = zeros(1,(M-2)*(M-2)) # temp left hand side hand side vector
+        #rhs = v[2:M-1,2:M-1]
+        #rhs = reshape(rhs,(M-2)*(M-2), 1) # julia reshapes columnwise
+        #rhs = B*rhs # This will be slow, I don't care
+        rhs = zeros(M,M) # temp right hand side matrix
+        # form the right hand side
+
+        for j = 2: M-1, i = 2:M-1
+            rhs[j,i] = (1 - 2*r)*v[j, i] + 0.5*r*(v[j+1, i] +v[j, i+1] + v[j-1, i] + v[j, i-1])
+        end # end rhs setup loop
+        moop = rhs[2:M-1,2:M-1]
+        moop = reshape(moop,(M-2)*(M-2), 1) # julia reshapes columnwise
 
         # I'm just ignoring boundar condition setup because the boundary is 0.  This is the part where we solve (1+r/2 L)v^n+1 = rhs
-        lhs = A\rhs
-        v[2:M-1, 2:M-1] = reshape(lhs, M-2, M-2)
+        lhs = A\moop
+
+        #lhs = gauss_sidelCN(v, 1000, 10^(-7.0), r, rhs)
+
+
+        v[2:M-1,2:M-1] = reshape(lhs, M-2, M-2) #
 
     end
-
+    println("Meep")
 
     return v
+
 
 end #function
 
@@ -290,3 +364,43 @@ end #function
 # 2nd homework use a sparse solver
 # 228A look at direct solve for
 # ADI solve is a bunch of 1-d direct solves.
+
+##################################################################
+
+####### Gauss-Siedel iteration specifically for Crank-Nicolson system
+
+function gauss_sidelCN( v::Array{Float64,2}, maxiter::Int64, tol::Float64, r::Float64, F::Array{Float64,2})
+    u = copy(F)
+    M = size(u, 2)
+    # Run the iterations
+    V = zeros(size(u))
+    s = 1/(1+2r)
+
+
+    for iter in 0:maxiter
+
+
+    for j in 2:M-1, k in 2:M-1
+      u[j,k] =  s* (0.5*r*u[j-1,k] + 0.5*r*u[j+1,k] + 0.5*r*u[j,k-1] + 0.5*r*u[j,k+1] + F[j,k])
+    end
+
+
+    iterdiff = vecnorm(u-V,1)
+
+
+    #if vecnorm(residual,1) < tol*vecnorm(F,1)
+
+    if iterdiff < tol*vecnorm(u,1)
+    #println("GS Tolerance reached after $iter iterations")
+
+    return u
+    end
+
+    V = copy(u)
+    end # iteration loop
+    println("Tolerance not reached")
+
+    return u
+
+    #####
+end # function

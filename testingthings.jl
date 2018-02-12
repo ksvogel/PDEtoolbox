@@ -19,18 +19,44 @@ end
 r = (a*k)/(h^2)
 A = PDEtool.laplace_mat2D(h)
 
+h = 1/2^2
+hmesh, kmesh, F, M, T = PDEtool.meshmaker(funcRHS, h, k)
+du = 1.0 * ones(M-3)
+d  = - 2.0 * ones(M-2)
+L = Tridiagonal(du, d, du) # Form the 1D laplacian matrix
+L2D = kron(speye(M-2), L) + kron(L , speye(M-2))
+A = eye((M-2)*(M-2)) + (r/2)*L2D
+A = factorize(A)
+# This solver uses the 2D laplacian which requires the (M-2)X (M-2) be temporarily transformed to a 1 (M-2)(M-2)
+b=M-2
+b = ones(1,b*b)
+
+
+b = collect(1:16)
+c = reshape(b, (4,4))
+d = reshape(b, 16,1)
 
 
 
 
-
-
-
-
-
-
-
-
+a =  1.0
+h = 1/2^8 # Grid spacing
+k = 0.01
+funcRHS( x, t) = 0
+u_0t(t) = 0 # boundary condition at x = 0
+u_1t(t) = 0 # boundary condition at x = 1
+u_xy0(x, y)= exp.(-100((x-.5).^2 + (y-.5).^2)) #-exp.(-.5^2) #exp(-100((x - 0.3)^2 + (y - 0.4)^2))
+hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k)
+m = zeros(M,M) # numeric solution, only latest timestep
+for j in 1:M, i in 1:M
+    m[j,i] = u_xy0(hmesh[j], hmesh[i])
+end
+#heatmap(m)
+#_x0(x) = exp.(-(x-.5).^2)-exp.(-.5^2)
+#_x0(x) = exp.(-(x-.5).^2 - (y-.5).^2)-exp.(-.5^2)
+#u_x0(x) = x < 0.5 ? x : 1-x # initial condtion at t = 0
+v = PDEtool.CN_heat2D(h, k, funcRHS,  u_0t, u_1t, u_xy0, a)
+heatmap(v)
 
 
 
