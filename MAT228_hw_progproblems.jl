@@ -21,8 +21,12 @@ h = 1/2^4 # Grid spacing
 k = 0.9*a*h # Tine stepping
 s = Bool(1) # Switch variable to give basic mesh
 funcRHS( x, t) = 0
-
-u_xy0(x, y)= exp.(-10((x-.3).^2 + (y-.4).^2))
+#FDM = 1 # Lax-Wendroff
+FDM = 2 # Upwinding
+FDM = 3 # CN
+u_x0(x)= 0.5*sin.(2*pi*x) + 0.5
+v = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
+heatmap(v)
 
 ##############################################################
 

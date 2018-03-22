@@ -21,8 +21,8 @@ export squish
 export foomp
 export vcycle
 
-include("badbehavior.jl")
-export recursioncheck
+#include("badbehavior.jl")
+#export recursioncheck
 
 include("krylov_methods.jl")
 export PCG
@@ -40,6 +40,7 @@ export gauss_sidelCN
 export prADI_heat2D
 export FHN2D
 export advectionMAT
+export advectionFDM
 
 #include("pde_visualizer.jl")
 

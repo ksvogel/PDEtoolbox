@@ -78,9 +78,11 @@ function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function,
 ###################### Initial setup of initial conditions and mesh
 
 # I am assuming periodic conditions which is taken care of in the upper right and lower left corners of the time stepping matrix and so no boundary conditions are needed
-hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
-v = zeros(M,T) # numeric solution
-nu = a*k/h
+
+    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
+    v = zeros(M,T) # numeric solution
+    v[1:M, 1] = u_x0.(hmesh) # initial condtions
+    nu = a*k/h
 
 ###################### Switch between stepping methods
 
@@ -89,20 +91,51 @@ nu = a*k/h
         # Generate MxM stepping matrix
         A = advectionMAT((1/2)*( nu + nu ^2), -(1/2)*( nu - nu ^2), 1 - nu ^2, -(1/2)*( nu - nu ^2), (1/2)*( nu + nu ^2), M)
 
+        # Timestepping
+        for i = 1: (T-1) # time stepping loop
+            # Advance one timestep
+            v[:, i+1] = A*v[:, i]
+        end # end time step loop
 
+
+        return v
+#####################
 
     elseif FDM == 2 # Step with Upwinding
         # Generate MxM stepping matrix, this is for a >= 0
-        A = advectionMAT(nu, 0, 1 - nu, 0, nu, M)
+        A = advectionMAT(nu, 0.0, 1 - nu, 0.0, nu, M)
+
+        # Timestepping
+        for i = 1: (T-1) # time stepping loop
+            # Advance one timestep
+            v[:, i+1] = A*v[:, i]
+        end # end time step loop
+
+        return v
+
+#####################
 
     elseif FDM == 3 # Step with Crank-Nicolson
+        # Generate MxM stepping matrix, this is for the LHS
+        A = advectionMAT(-nu/4, nu/4, 1.0, nu/4, -nu/4, M)
+        # Generate MxM stepping matrix, this is for the RHS
+        B = A'
+
+        # Timestepping
+        for i = 1: (T-1) # time stepping loop
+            # Advance one timestep
+            v[:, i+1] = A\(B*v[:, i])
+        end # end time step loop
+
+        return v
+
+#####################
 
     else
         error("No method type selected")
     end
 
 
-    return v
 
 end #function
 ###############################################################################
