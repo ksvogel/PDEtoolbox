@@ -37,6 +37,9 @@ export BDF2_heat
 export CN_heat2D
 export FE_heat2D
 export gauss_sidelCN
+export prADI_heat2D
+export FHN2D
+export advectionMAT
 
 #include("pde_visualizer.jl")
 

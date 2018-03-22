@@ -12,24 +12,217 @@ meshmaker is a basic function to set up a mesh for the finite difference methods
 
 =#
 
-function meshmaker(funcRHS::Function, h::Float64, k::Float64)
-    hmesh = [j for j in 0:h:1]
-    kmesh = [j for j in 0:k:1]
+function meshmaker(funcRHS::Function, h::Float64, k::Float64, s::Bool)
+
+    # s is a boolean, True gives normal mesh, false give cell-centered
+    if s
+        hmesh = [j for j in 0:h:1]
+        kmesh = [j for j in 0:k:1]
+
+    else
+        hmesh = [j for j in 0:h:(1-h)] .+ 0.5*h
+        kmesh = [j for j in 0:k:1]
+
+    end
     M = length(hmesh)
     T = length(kmesh)
     F = zeros(M,T)
 
     # This evaluates F at all the inner points and the last time boundary point
-    for k in 2:T, j in 2:M-1
-        F[j,k] = funcRHS.(hmesh[j], kmesh[k])
+    for i in 2:T, j in 2:M-1
+        F[j,i] = funcRHS.(hmesh[j], kmesh[i])
     end
 
 return (hmesh, kmesh, F, M, T)
 
 end #function]
 
+###############################################################################
+# Begin Hyperbolic Solvers
+###############################################################################
 
-#= CRANK-NICOLSON SOLVERS FOR THE HEAT EQUATION
+#= advectionMAT makes the stepping matrices for advectionFDM, it takes values for the diagonal, off diagonal, and corners and builds a N x N matrix where N is the number of mesh points
+
+c1                  Value for upper right corner
+c2                  Value for lower left corner
+dc                   Value repeated along diagonal
+duc                  Value repeated along superdiagonal
+dlc                  Value repeated along subiagonal
+N                   Dimension of the matrix
+=#
+
+function advectionMAT(c1::Float64, c2::Float64, dc::Float64, duc::Float64, dlc::Float64, N::Int64)
+
+    du = duc * ones(N-1)
+    d  = dc* ones(N)
+    dl = dlc*ones(N-1)
+    Amat = eye(N) *Tridiagonal(dl, d, du)
+    Amat[1,end] = c1
+    Amat[end,1] = c2
+
+    return sparse(Amat)
+
+end # function
+
+
+#= advectionFDM can call several finite difference methods for solving the advection equation. Options
+
+FDM = 1              Lax-Wendroff
+FDM = 2              Upwinding
+FDM = 3              Crank-Nicolson
+
+=#
+
+function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function, a::Float64, s::Bool, FDM::Int64)
+
+###################### Initial setup of initial conditions and mesh
+
+# I am assuming periodic conditions which is taken care of in the upper right and lower left corners of the time stepping matrix and so no boundary conditions are needed
+hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
+v = zeros(M,T) # numeric solution
+nu = a*k/h
+
+###################### Switch between stepping methods
+
+    if FDM == 1 # Step with Lax-Wendroff
+        # v_{j}^{n+1} = v_j^n - \frac{ak}{2h}(v_{j+1}^n - v_{j-1}^n) + \frac{a^2k^2}{2h^2}(v_{j+1}^n - 2v_j^n + v_{j-1}^n).
+        # Generate MxM stepping matrix
+        A = advectionMAT((1/2)*( nu + nu ^2), -(1/2)*( nu - nu ^2), 1 - nu ^2, -(1/2)*( nu - nu ^2), (1/2)*( nu + nu ^2), M)
+
+
+
+    elseif FDM == 2 # Step with Upwinding
+        # Generate MxM stepping matrix, this is for a >= 0
+        A = advectionMAT(nu, 0, 1 - nu, 0, nu, M)
+
+    elseif FDM == 3 # Step with Crank-Nicolson
+
+    else
+        error("No method type selected")
+    end
+
+
+    return v
+
+end #function
+###############################################################################
+# Begin Parabolic Solvers
+###############################################################################
+
+#= FitzHugh-Nagumo equations
+This is a solver for the FitzHugh-Nagumo equations. It uses a fractional step method with Peaceman-Rachford ADI for the diffusion solve and Backward-Euler for the reaction solve. This basically works out to making a Backward-Euler sandwhich with the two steps of PR-ADI done over a half time step as bread.
+
+
+Spatial dimensions on unit square 0 < x < 1, 0 < y < 1
+u_t(x,t) = a * u_xx(x,t) + F(x,y)
+u(0,t) = u_0t
+u(1,t) = u_1t
+u(x, y, 0) = u_x0 initial condtions
+v - output solution matrix where rows are x values at column time t
+h - space step
+k - time step
+funcRHS - function of x, t, and constants
+spaceDim - amount of spatial dimensions
+
+=#
+
+function FHN2D(h::Float64, k::Float64, v_xy0::Function, w_xy0::Function, Tend::Int64, s::Bool)
+
+    #################### Parameters specific to The FitzHugh-Nagumo equations
+    a = 0.1
+    gam = 2.0
+    eps = 0.005
+    I = 0.0
+    D = 0.00001
+    fv_vw(v,w) =  (a - v).*(v - 1).*v - w + I # Used for F.E. solve
+    fw_vw(v,w) = eps.*(v - gam.*w) # Used for F.E. solve
+
+    #################### Set up the mesh and the solution vector
+    hmesh = [j for j in 0:h:(1-h)] .+ 0.5*h
+    kmesh = [j for j in 0:k:Tend]
+    M = length(hmesh)
+    T = length(kmesh)
+    v = zeros(M,M) # numeric solution
+    w = zeros(M,M) # numeric solution
+    stor = 34 # after how many timesteps to store a solution
+    numsol = Int64(ceil(T/stor)+1)
+    sol_cnt = 2 # counter for how many solutions have been stored
+    vstored = Vector{Any}(numsol)
+
+    # Intermediate variables pre-allocation
+    v_star = zeros(M,M) # numeric solution after diffusing in x-direction
+    RHS = zeros(M,M)
+    LHS = zeros(M,M)
+    v_half = zeros(M,M) # numeric solution after PR-ADI timestep k/2
+    v_FE = zeros(M,M) # numeric solution after FE step
+    w_FE = zeros(M,M) # numeric solution after FE step
+
+    ################### Set up inital conditions in solution matrix
+
+    # Initial conditions
+    for i in 1:M, j in 1:M
+        v[i,j] = v_xy0(hmesh[i], hmesh[j])
+        w[i,j] = w_xy0(hmesh[i], hmesh[j])
+    end
+    vstored[1] = v # Store the initial voltage
+
+    #################### Set up the left and right matrices to solve at each time step.
+
+    r = (D*k)/(2*2*h^2) # The extra factor of 2 is due to the half-time step
+    du = 1.0 * ones(M-1)
+    d  = - 2.0 * ones(M)
+    d[1]  = -1.0
+    d[end] = -1.0
+    L =  Tridiagonal(du, d, du) # Form the 1D laplacian matrix
+
+    # This is for the LHS for the implicit stepping of the form (I - ak/2 L)
+    A = speye(M) - r*L
+
+    # This is for the RHS for the explicit stepping of the form (I + ak/2 L)
+    B = speye(M) + r*L
+
+    for i in 2:T-1
+
+        ###################################### PR-ADI solve k/2 timestep
+        # Diffuse in the x-direction (I - ka/2 Lx) u* = (I + ka/2 Ly) u^n
+        RHS = v*B
+        v_star = A\RHS
+        # Diffuse in the y-direction (I - ka/2 Ly) u^(n+1) = (I + ka/2 Lx) u*
+        RHS = (B*v_star)'
+        LHS = A\RHS
+        # Assign v^(*)
+        v_half = LHS'
+
+        ###################################### Forward Euler solve
+        v_FE = v_half + k*fv_vw(v_half,w)
+        w = w + k*fw_vw(v_half,w)
+
+        ###################################### PR-ADI solve k/2 timestep
+        # Diffuse in the x-direction (I - ka/2 Lx) u* = (I + ka/2 Ly) u^n
+        RHS = v_FE*B
+        v_star = A\RHS
+        # Diffuse in the y-dvstored[sol_cnt] = virection (I - ka/2 Ly) u^(n+1) = (I + ka/2 Lx) u*
+        RHS = (B*v_star)'
+        LHS = A\RHS
+        v = LHS'
+
+        if mod(i, stor) == 0 #This stores a solution ever
+            vstored[sol_cnt] = v
+            sol_cnt += 1
+        end
+
+        #vstored[i] = v
+    end # time step loop
+    vstored[end] = v
+
+    return vstored
+
+end # function
+
+#=
+
+=#
+#= PEACEMAN-RACHFORD ADI FOR THE 2D HEAT EQUATION
 This is a solver for the heat equation  for 0 < x < 1, 0 <= t <= 1
 u_t(x,t) = a * u_xx(x,t) + F(x,y)
 u(0,t) = u_0t
@@ -41,25 +234,77 @@ k - time step
 funcRHS - function of x, t, and constants
 spaceDim - amount of spatial dimensions
 
-Crank-Nicolson is an implicit methods and requires solving a matrix at each time step
 =#
-using PDEtool
+
+function prADI_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64, s::Bool)
+
+    #################### Set up the mesh and th e solution vector
+
+    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
+    v = zeros(M,M) # numeric solution, only latest timestep
+
+    # Intermediate variables pre-allocation
+    v_star = zeros(M,M) # numeric solution after diffusing in x-direction
+    RHS = zeros(M,M)
+    LHS = zeros(M,M) # numeric solution, only latest timestep
+
+
+    ################### Set up inital conditions in solution matrix
+
+    # Initial conditions
+    for i in 1:M, j in 1:M
+        v[i,j] = u_xy0(hmesh[i], hmesh[j])
+    end
+
+    #################### Set up the left and right matrices to solve at each time step.
+
+    r = (a*k)/(2*h^2)
+    du = 1.0 * ones(M-1)
+    d  = - 2.0 * ones(M)
+    d[1]  = -1.0
+    d[end] = -1.0
+    L =  Tridiagonal(du, d, du) # Form the 1D laplacian matrix
+
+    # This is for the LHS for the implicit stepping of the form (I - ak/2 L)
+    A = speye(M) - r*L
+
+    # This is for the RHS for the explicit stepping of the form (I + ak/2 L)
+    B = speye(M) + r*L
+
+    for i in 2:T-1
+        # In the P-R ADI method we diffuse in the x and y directions seperately and     therefore end up with 2 1D systems
+
+        # Diffuse in the x-direction (I - ka/2 Lx) u* = (I + ka/2 Ly) u^n
+        RHS = v*B
+        v_star = A\RHS
+
+        # Diffuse in the y-direction (I - ka/2 Ly) u^(n+1) = (I + ka/2 Lx) u*
+        RHS = (B*v_star)'
+        LHS = A\RHS
+
+        # Assign v^(n+1)
+        v = LHS'
+
+    end # time step loop
+
+    return v
+
+end # function
 
 ####################### Forward Euler, 2 spatial dimensions
 # So rather than save a million matrices I will only save the one for the final timestep.  Requires k <= h^2/2a
 
-function FE_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64)
+function FE_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64, s::Bool)
 
 
     #################### Set up the mesh and th e solution vector
-    # The solution vector v has increasing y-space going down the colums and increasing x-space going right across columns
 
-    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k)
+    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
     v = zeros(M,M) # numeric solution, only latest timestepA = kron(Iy, Lx) + kron(Ly,Ix)
 
     ################### Set up inital and boundary conditions in solution matrix
 
-    # Initial conditionsA = kron(Iy, Lx) + kron(Ly,Ix)
+    # Initial conditionsA = kron(Iy, Lx) + krA = kron(Iy, Lx) + kron(Ly,Ix)on(Ly,Ix)
     for j in 1:M, i in 1:M
         v[j,i] = u_xy0(hmesh[j], hmesh[i])
     end
@@ -95,24 +340,38 @@ function FE_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u
         v[2:M-1, 2:M-1] = reshape(lhs, M-2, M-2)
 
     end
-    println("Meep")
+
 
     return v
 
 
 end #function
 
+#= CRANK-NICOLSON SOLVERS FOR THE HEAT EQUATION
+This is a solver for the heat equation  for 0 < x < 1, 0 <= t <= 1
+u_t(x,t) = a * u_xx(x,t) + F(x,y)
+u(0,t) = u_0t
+u(1,t) = u_1t
+u(x,0) = u_x0 initial condtions
+v - output solution matrix where rows are x values at column time t
+h - space step
+k - time step
+funcRHS - function of x, t, and constants
+spaceDim - amount of spatial dimensions
+
+Crank-Nicolson is an implicit methods and requires solving a matrix at each time step
+=#
 
 ####################### Crank Nicolson, 2 spatial dimensions
 # So rather than save a million matrices I will only save the one for the final timestep
 
-function CN_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64)
+function CN_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64, s::Bool)
 
 
     #################### Set up the mesh and th e solution vector
-    # The solution vector v has increasing y-space going down the colums and increasing x-space going right across columns
 
-    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k)
+
+    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
     v = zeros(M,M) # numeric solution, only latest timestepA = kron(Iy, Lx) + kron(Ly,Ix)
     #rhs = zeros(M-2,M-2) # temp right hand side matrix
     lhs = zeros(1,(M-2)*(M-2)) # temp left hand side hand side vector
@@ -177,7 +436,7 @@ function CN_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u
         v[2:M-1,2:M-1] = reshape(lhs, M-2, M-2) #
 
     end
-    println("Meep")
+
 
     return v
 
@@ -189,13 +448,13 @@ end #function
 
 ####################### Crank Nicolson, 1 for i = 2: (T-1) # time stepping loopspatial dimension
 
-function CN_heat(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_x0::Function, a::Float64)
+function CN_heat(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_x0::Function, a::Float64, s::Bool)
 
 
     #################### Set up the mesh and th e solution vector
     # The solution vector v has increasing space as going down rows and increasing time as going right in columns
 
-    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k)
+    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
     v = zeros(M,T) # numeric solution
     rhs = zeros(M-2,1) # temp right hand side array
     v[1:M, 1] = u_x0.(hmesh) # initial condtions
@@ -245,12 +504,12 @@ This function performs BDF-2 on the heat equation
 which has the form
 u^{n+1} = B_1 u^{n} + B_2 u^{n-1} + b
 =#
-function BDF2_heat(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_x0::Function, a::Float64)
+function BDF2_heat(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_x0::Function, a::Float64, s::Bool)
 
 
     #################### Set up the mesh and th e solution vector
 
-    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k)
+    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
     v = zeros(M,T) # numeric solution
     rhs = zeros(M-2,1) # temp right hand side array
     BEstep = zeros(M-2,1) # temp right hand side array for BE
@@ -319,23 +578,43 @@ This function is to set up a mesh refinement study for a numerically solved PDE.
 =#
 
 
-function refinement_ratios(v_unrefined::Vector{Any}, hs::Array{Float64,1}, ks::Array{Float64,1})
+function refinement_ratios(v_unrefined::Vector{Any}, hs::Array{Float64,1}, ks::Array{Float64,1}, s::Bool)
 # Typically we only compare one time column
 # Set up the grid restriction operator
-# WARNING: This if for grid spacing using powers of 2, e.g. h = 1/2^6
-# Restriction operator takes every 2i + 1 index of the finer grid
+
+# s is a Bool that switches based on whether a regular or cell centered mesh is used, s = Bool(0) gives cell centered
 
     v_restricteds = Vector{Any}(length(v_unrefined)-1) # This will store the newly restricted solutions v
 
-    # Restrict every MxM grid to a (M-1)/2 X (M-1)/2 grid
-    for j in 2: length(v_unrefined)
-        squishing = copy(v_unrefined[j])
-        newgridlength = Int64((size(squishing,1)-1)/2)
-        newgridwidth = Int64((size(squishing,2)-1)/2)
-        restricted = squishing[[2*i+1 for i in  0:1:newgridlength], [2*i+1 for i in  0:1:newgridwidth]]
-        v_restricteds[j-1] = copy(restricted)
-    end # restricting
+    if s # Restricts a generic mesh
+        # WARNING: This if for grid spacing using powers of 2, e.g. h = 1/2^6
+        # Restriction operator takes every 2i + 1 index of the finer grid
 
+        # Restrict every MxM grid to a (M-1)/2 X (M-1)/2 grid
+        for j in 2: length(v_unrefined)
+            squishing = copy(v_unrefined[j])
+            newgridlength = Int64((size(squishing,1)-1)/2)
+            newgridwidth = Int64((size(squishing,2)-1)/2)
+# Typically we only compare one time column
+            restricted = squishing[[2*i+1 for i in  0:1:newgridlength],[2*i+1 for  i in  0:1:newgridwidth]]
+            v_restricteds[j-1] = copy(restricted)
+        end # restricting
+# Typically we only compare one time column
+
+    else # Restricts a cell-centered mesh
+        # WARNING: This if for grid spacing using powers of 3, e.g. h = 1/3^6
+        # Restriction operator takes every 2i + 1 index of the finer grid
+
+        # Restrict every MxM grid to a (M)/3 X (M)/3 grid
+        for j in 2: length(v_unrefined)
+            squishing = copy(v_unrefined[j])
+            newgridlength = Int64(size(squishing,1)/3)
+            newgridwidth = Int64(size(squishing,2)/3)
+            restricted = squishing[[3*i+2 for i in  0:1:newgridwidth-1],[3*i+2 for  i in  0:1:newgridwidth-1]]
+            v_restricteds[j-1] = copy(restricted)
+        end # restricting
+
+    end #conditional switch
 
     # Calculate the ratios
     refinedratio_length = (length(v_restricteds)-1)
@@ -344,10 +623,9 @@ function refinement_ratios(v_unrefined::Vector{Any}, hs::Array{Float64,1}, ks::A
     for j in 1: (refinedratio_length)
         # The vecnorm is the appropriate norm here because we want to compare entries, we are actual doing the norm of a discrete integration
 
-        refinedratio[j] = ( hs[j]*ks[j]* vecnorm( v_unrefined[j] - v_restricteds[j], 1) )/( hs[j+1]*ks[j+1]*vecnorm( v_unrefined[j+1] - v_restricteds[j+1],1))
+        refinedratio[j] = ( hs[j]^2*ks[j]* vecnorm( v_unrefined[j] - v_restricteds[j], 1) )/( hs[j+1]^2*ks[j+1]*vecnorm( v_unrefined[j+1] - v_restricteds[j+1],1))
 
-        # refinedratio[j] = ( hs[j]*ks[j]* vecnorm( v_unrefined[j] - v_restricteds[j], 1) )/( hs[j+1]*ks[j+1]*vecnorm( v_unrefined[j+1] - v_restricteds[j+1],1))
-
+# hs[j]*ks[j]*
     end
 
     return (refinedratio, v_restricteds)
