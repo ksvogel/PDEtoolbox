@@ -18,6 +18,7 @@ function meshmaker(funcRHS::Function, h::Float64, k::Float64, s::Bool)
     if s
         hmesh = [j for j in 0:h:1]
         kmesh = [j for j in 0:k:1]
+        #%kmesh = [kmesh' 1]
 
     else
         hmesh = [j for j in 0:h:(1-h)] .+ 0.5*h

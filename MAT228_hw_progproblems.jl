@@ -21,12 +21,21 @@ h = 1/2^7 # Grid spacing
 k = 0.9*h/a # Tine stepping
 s = Bool(1) # Switch variable to give basic mesh
 funcRHS( x, t) = 0
-#FDM = 1 # Lax-Wendroff
-FDM = 2 # Upwinding
-FDM = 3 # CN
+FDM = 1 # Lax-Wendroff
+#FDM = 2 # Upwinding
+#u_x0(x)= 0.5*cos.(2*pi*x) + 0.5
 u_x0(x)= 0.5*cos.(2*pi*x) + 0.5
+u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
 v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
-heatmap(v)
+
+# Plotting
+Plots.plotlyjs()
+hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
+l = size(v[:,1])
+x = hmesh
+y_vals = [v[:,1] v[:,50]-ones(l) v[:,100]-2*ones(l) v[:, end]-3*ones(l)]
+labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])  string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
+Plots.plot(x, y_vals, linewidth=2, alpha=0.6, labels = labels)
 
 # The grid refinement study using the infinity-norm
 hstart =  3
@@ -53,7 +62,10 @@ s = Bool(1) # Switch variable to give basic mesh
 funcRHS( x, t) = 0
 FDM = 3 # CN
 u_x0(x)= .5*cos.(2*pi*x) + 0.5
+u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
 v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
+
+# Plotting
 heatmap(v)
 hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
 l = size(v[:,1])
@@ -61,10 +73,15 @@ Plots.plotlyjs()
 x = hmesh
 y_vals = [v[:,1] v[:,50]-ones(l) v[:,100]-2*ones(l) v[:, end]-3*ones(l)]
 labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])  string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
-
 Plots.plot(x, y_vals, linewidth=2, alpha=0.6, labels = labels)
 
+# Plot the relative phase error
 
+x = [j for j in 0:.05: pi]
+y = -atan.(-0.9*sin.(x)./(1-0.9^2*sin.(x).^2./4))./(0.9.*x)
+Plots.plot(x, y, linewidth=2, alpha=0.6)
+
+# In part A we found using Von Neumann analysis that we expect no amplitude error. The relative phase
 
 
 
@@ -73,7 +90,6 @@ Plots.plot(x, y_vals, linewidth=2, alpha=0.6, labels = labels)
 
 ##############################################################
 #= Homework 3, problem 1
-Solve the heat equation with Neumann boundry conditions using the Peaceman-Rachford ADI scheme on a cell-centered grid.
 Solve the heat equation with Neumann boundry conditions using the Peaceman-Rachford ADI scheme on a cell-centered grid.
 =#
 
