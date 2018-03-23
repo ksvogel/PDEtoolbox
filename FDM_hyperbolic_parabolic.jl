@@ -81,8 +81,9 @@ function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function,
 
     hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
     v = zeros(M,T) # numeric solution
-    v[1:M, 1] = u_x0.(hmesh) # initial condtions
+    v[:, 1] = u_x0.(hmesh) # initial condtions
     nu = a*k/h
+    error = zeros(3,1) # Vector to hold the error in the 1, 2, and infinity norms
 
 ###################### Switch between stepping methods
 
@@ -97,13 +98,17 @@ function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function,
             v[:, i+1] = A*v[:, i]
         end # end time step loop
 
+        error[1] = h*vecnorm((v[:,end] - v[:,1]), 1)
+        error[2] = h^(1/2)*vecnorm((v[:,end] - v[:,1]), 2)
+        error[3] = vecnorm((v[:,end] - v[:,1]), Inf)
 
-        return v
+        return (v, error)
 #####################
 
     elseif FDM == 2 # Step with Upwinding
         # Generate MxM stepping matrix, this is for a >= 0
-        A = advectionMAT(nu, 0.0, 1 - nu, 0.0, nu, M)
+        # advectionMAT(c1::Float64, c2::Float64, dc::Float64, duc::Float64, dlc::Float64, N::Int64)
+        A = advectionMAT(nu, 0.0, 1 - nu, 0.0,  nu, M)
 
         # Timestepping
         for i = 1: (T-1) # time stepping loop
@@ -111,7 +116,11 @@ function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function,
             v[:, i+1] = A*v[:, i]
         end # end time step loop
 
-        return v
+        error[1] = h*vecnorm((v[:,end] - v[:,1]), 1)
+        error[2] = h^(1/2)*vecnorm((v[:,end] - v[:,1]), 2)
+        error[3] = vecnorm((v[:,end] - v[:,1]), Inf)
+
+        return (v, error)
 
 #####################
 
@@ -127,7 +136,11 @@ function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function,
             v[:, i+1] = A\(B*v[:, i])
         end # end time step loop
 
-        return v
+        error[1] = h*vecnorm((v[:,end] - v[:,1]), 1)
+        error[2] = h^(1/2)*vecnorm((v[:,end] - v[:,1]), 2)
+        error[3] = vecnorm((v[:,end] - v[:,1]), Inf)
+
+        return (v, error)
 
 #####################
 

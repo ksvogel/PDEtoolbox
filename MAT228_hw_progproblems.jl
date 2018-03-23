@@ -17,20 +17,63 @@ Solve the advection equation withperiodic boundry conditions using Lax-Wendroff 
 =#
 
 a =  1.0
-h = 1/2^4 # Grid spacing
-k = 0.9*a*h # Tine stepping
+h = 1/2^7 # Grid spacing
+k = 0.9*h/a # Tine stepping
 s = Bool(1) # Switch variable to give basic mesh
 funcRHS( x, t) = 0
 #FDM = 1 # Lax-Wendroff
 FDM = 2 # Upwinding
 FDM = 3 # CN
-u_x0(x)= 0.5*sin.(2*pi*x) + 0.5
-v = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
+u_x0(x)= 0.5*cos.(2*pi*x) + 0.5
+v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
 heatmap(v)
 
-##############################################################
+# The grid refinement study using the infinity-norm
+hstart =  3
+hend = 11
+spacing = [1/2^j for j in hstart:1:hend]
+vsLW = Vector{Any}(length(spacing))
+vsUP = Vector{Any}(length(spacing))
+normerrors = zeros(6,length(spacing))
 
+for i in 1:length(spacing)
+    vsLW[i], normerrors[1:3, i]  = advectionFDM(spacing[i], 0.9*spacing[i]/a, funcRHS, u_x0, a, s, 1)
+    vsUP[i], normerrors[4:6, i]  = advectionFDM(spacing[i], 0.9*spacing[i]/a, funcRHS, u_x0, a, s, 2)
+end
+
+refinement_ratios = (normerrors[:,1:(end-1)] ./ normerrors[:, 2:end])'
+
+
+# Solve the advection equation with crank nicoslson
+
+a =  1.0
+h = 1/2^7 # Grid spacing
+k = 0.9*h/a # Tine stepping
+s = Bool(1) # Switch variable to give basic mesh
+funcRHS( x, t) = 0
+FDM = 3 # CN
+u_x0(x)= .5*cos.(2*pi*x) + 0.5
+v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
+heatmap(v)
+hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
+l = size(v[:,1])
+Plots.plotlyjs()
+x = hmesh
+y_vals = [v[:,1] v[:,50]-ones(l) v[:,100]-2*ones(l) v[:, end]-3*ones(l)]
+labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])  string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
+
+Plots.plot(x, y_vals, linewidth=2, alpha=0.6, labels = labels)
+
+
+
+
+
+
+
+
+##############################################################
 #= Homework 3, problem 1
+Solve the heat equation with Neumann boundry conditions using the Peaceman-Rachford ADI scheme on a cell-centered grid.
 Solve the heat equation with Neumann boundry conditions using the Peaceman-Rachford ADI scheme on a cell-centered grid.
 =#
 
