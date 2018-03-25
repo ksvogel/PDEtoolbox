@@ -14,6 +14,8 @@ plotlyjs()
 
 #= Homework 4, problem 1
 Solve the advection equation withperiodic boundry conditions using Lax-Wendroff and upwinding.
+
+# Need to use interpolation for the final timestep since linspace does not give the final time exactly at 1
 =#
 
 a =  1.0
@@ -61,7 +63,7 @@ k = 0.9*h/a # Tine stepping
 s = Bool(1) # Switch variable to give basic mesh
 funcRHS( x, t) = 0
 FDM = 3 # CN
-u_x0(x)= .5*cos.(2*pi*x) + 0.5
+#u_x0(x)= .5*cos.(2*pi*x) + 0.5
 u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
 v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
 
