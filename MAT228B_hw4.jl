@@ -6,8 +6,9 @@ Homeworks for MAT 228
 =#
 include("PDEtool.jl")
 using PDEtool
-using Plots
-plotlyjs()
+#using Plots
+using LatexPrint
+#plotlyjs()
 
 
 ##############################################################
@@ -17,57 +18,71 @@ Solve the advection equation withperiodic boundry conditions using Lax-Wendroff 
 
 # Need to use interpolation for the final timestep since linspace does not give the final time exactly at 1
 =#
-
+# For testing
 a =  1.0
-h = 1/2^7 # Grid spacing
-k = 0.9*h/a # Tine stepping
+h = 1/(2^5) # Grid spacin
+k = 8*h/10 # Tine stepping
 s = Bool(1) # Switch variable to give basic mesh
 funcRHS( x, t) = 0
 FDM = 1 # Lax-Wendroff
 #FDM = 2 # Upwinding
 #u_x0(x)= 0.5*cos.(2*pi*x) + 0.5
 u_x0(x)= 0.5*cos.(2*pi*x) + 0.5
-u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
-v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
+#u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
+#v, error = PDEtool.advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
 
 # Plotting
+#=
 Plots.plotlyjs()
-hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
+hmesh, kmesh, F, M, T = PDEtool.meshmaker(funcRHS, h, k, s)
 l = size(v[:,1])
 x = hmesh
 y_vals = [v[:,1] v[:,50]-ones(l) v[:,100]-2*ones(l) v[:, end]-3*ones(l)]
-labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])  string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
-Plots.plot(x, y_vals, linewidth=2, alpha=0.6, labels = labels)
-
+#labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50]) string("Time = ", kmesh[100])  string("Time = ", kmesh[end])
+Plots.plot(x, y_vals, linewidth=2, alpha=0.6)
+=#
 ###############################################################################
 # Grid refinement study Lax-Wendroof/Uwinding continuous/discontinuous I.C. table 1
 # Norm Convergence table 2
 a =  1.0
+c = 0.9
 s = Bool(1) # Switch variable to give basic mesh
-funcRHS( x, t) = 0 # Dummy, these problems don't have a forcing term
 u_x01(x)= 0.5*cos.(2*pi*x) + 0.5
 u_x02(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
-hstart =  3
-hend = 11
-spacing = [1/2^j for j in hstart:1:hend]
-vsLW1 = Vector{Any}(length(spacing))
-vsUP1 = Vector{Any}(length(spacing))
-vsLW2 = Vector{Any}(length(spacing))
-vsUP2 = Vector{Any}(length(spacing))
-normerrors1 = zeros(6,length(spacing))
-normerrors2 = zeros(6,length(spacing))
+hstart =  4
+hend = 10
+Nts = [10*2^j for j in hstart:1:hend]
+Nxs = round.(Int, [c*(nt) for nt in Nts ])
+ks = [1/(Nt) for Nt in Nts]
+hs = [1/Nx for Nx in Nxs]
+vsLW1 = Vector{Any}(length(Nts))
+vsUP1 = Vector{Any}(length(Nts))
+vsLW2 = Vector{Any}(length(Nts))
+vsUP2 = Vector{Any}(length(Nts))
+normerrors1 = zeros(6,length(Nts))
+normerrors2 = zeros(6,length(Nts))
 
-for i in 1:length(spacing)
+for i in 1:length(Nts)
     # Continuous Initial data
-    vsLW1[i], normerrors1[1:3, i]  = advectionFDM(spacing[i], 0.9*spacing[i]/a, funcRHS, u_x01, a, s, 1)
-    vsUP1[i], normerrors1[4:6, i]  = advectionFDM(spacing[i], 0.9*spacing[i]/a, funcRHS, u_x01, a, s, 2)
+    vsLW1[i], normerrors1[1:3, i]  = PDEtool.advectionFDM(hs[i], ks[i], Nxs[i], Nts[i], u_x01, a, s, 1)
+    vsUP1[i], normerrors1[4:6, i]  = PDEtool.advectionFDM(hs[i], ks[i], Nxs[i], Nts[i], u_x01, a, s, 2)
+
     # Discontinuous Initial data
-    vsLW2[i], normerrors2[1:3, i]  = advectionFDM(spacing[i], 0.9*spacing[i]/a, funcRHS, u_x02, a, s, 1)
-    vsUP2[i], normerrors2[4:6, i]  = advectionFDM(spacing[i], 0.9*spacing[i]/a, funcRHS, u_x02, a, s, 2)
+    vsLW2[i], normerrors2[1:3, i]  = PDEtool.advectionFDM(hs[i], ks[i], Nxs[i], Nts[i], u_x02, a, s, 1)
+    vsUP2[i], normerrors2[4:6, i]  = PDEtool.advectionFDM(hs[i], ks[i], Nxs[i], Nts[i], u_x02, a, s, 2)
+
 end
 
 refinement_ratios1 = (normerrors1[:,1:(end-1)] ./ normerrors1[:, 2:end])'
-refinement_ratios2 = (normerrors1[:,1:(end-1)] ./ normerrors1[:, 2:end])'
+refinement_ratios2 = (normerrors2[:,1:(end-1)] ./ normerrors2[:, 2:end])'
+R = round.(refinement_ratios1; refinement_ratios2],5, 10)
+R = [ [Nxs[2:end] ; Nxs[2:end] ] R ]
+println(R)
+lap(R)
+NE = signif.([normerrors1'; normerrors2'],5)
+NE = [Nxs[2:end]; Ne]
+lap(NE)
+println(NE)
 
 
 

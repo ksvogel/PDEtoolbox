@@ -18,7 +18,7 @@ function meshmaker(funcRHS::Function, h::Float64, k::Float64, s::Bool)
     if s
         hmesh = [j for j in 0:h:1]
         kmesh = [j for j in 0:k:1]
-        #%kmesh = [kmesh' 1]
+
 
     else
         hmesh = [j for j in 0:h:(1-h)] .+ 0.5*h
@@ -52,7 +52,7 @@ dlc                  Value repeated along subiagonal
 N                   Dimension of the matrix
 =#
 
-function advectionMAT(c1::Float64, c2::Float64, dc::Float64, duc::Float64, dlc::Float64, N::Int64)
+function advectionMAT(c1::Float64, c2::Float64, dlc::Float64, dc::Float64, duc::Float64, N::Int64)
 
     du = duc * ones(N-1)
     d  = dc* ones(N)
@@ -74,14 +74,14 @@ FDM = 3              Crank-Nicolson
 
 =#
 
-function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function, a::Float64, s::Bool, FDM::Int64)
+function advectionFDM(h::Float64, k::Float64, Nx::Int64, Nt::Int64, u_x0::Function, a::Float64, s::Bool, FDM::Int64)
 
 ###################### Initial setup of initial conditions and mesh
 
 # I am assuming periodic conditions which is taken care of in the upper right and lower left corners of the time stepping matrix and so no boundary conditions are needed
 
-    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
-    v = zeros(M,T) # numeric solution
+    hmesh = collect(linspace(0, 1-h, Nx))
+    v = zeros(Nx, Nt+1) # numeric solution
     v[:, 1] = u_x0.(hmesh) # initial condtions
     nu = a*k/h
     error = zeros(3,1) # Vector to hold the error in the 1, 2, and infinity norms
@@ -91,13 +91,17 @@ function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function,
     if FDM == 1 # Step with Lax-Wendroff
         # v_{j}^{n+1} = v_j^n - \frac{ak}{2h}(v_{j+1}^n - v_{j-1}^n) + \frac{a^2k^2}{2h^2}(v_{j+1}^n - 2v_j^n + v_{j-1}^n).
         # Generate MxM stepping matrix
-        A = advectionMAT((1/2)*( nu + nu ^2), -(1/2)*( nu - nu ^2), 1 - nu ^2, -(1/2)*( nu - nu ^2), (1/2)*( nu + nu ^2), M)
+        A = advectionMAT(nu/2 + nu^2/2, -nu/2 + nu^2/2, nu/2 + nu^2/2, 1 - nu^2, -nu/2+ nu^2/2, Nx)
 
         # Timestepping
-        for i = 1: (T-1) # time stepping loop
+        for i = 1: (Nt) # time stepping loop
             # Advance one timestep
             v[:, i+1] = A*v[:, i]
         end # end time step loop
+
+        # This is a fix for the fact the the interval does not end at exactly one
+        #corr =( kmesh[end]-1)/.9
+        #v0 = u_x0.(hmesh.-a*kmesh[end]) # .- kmesh[end]
 
         error[1] = h*vecnorm((v[:,end] - v[:,1]), 1)
         error[2] = h^(1/2)*vecnorm((v[:,end] - v[:,1]), 2)
@@ -106,13 +110,14 @@ function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function,
         return (v, error)
 #####################
 
+
     elseif FDM == 2 # Step with Upwinding
         # Generate MxM stepping matrix, this is for a >= 0
-        # advectionMAT(c1::Float64, c2::Float64, dc::Float64, duc::Float64, dlc::Float64, N::Int64)
-        A = advectionMAT(nu, 0.0, 1 - nu, 0.0,  nu, M)
+
+        A = advectionMAT(nu, 0.0, nu, 1 - nu, 0.0, Nx)
 
         # Timestepping
-        for i = 1: (T-1) # time stepping loop
+        for i = 1: (Nt) # time stepping loop
             # Advance one timestep
             v[:, i+1] = A*v[:, i]
         end # end time step loop
@@ -127,12 +132,12 @@ function advectionFDM(h::Float64, k::Float64, funcRHS::Function, u_x0::Function,
 
     elseif FDM == 3 # Step with Crank-Nicolson
         # Generate MxM stepping matrix, this is for the LHS
-        A = advectionMAT(-nu/4, nu/4, 1.0, nu/4, -nu/4, M)
+        A = advectionMAT(-nu/4, nu/4, 1.0, nu/4, -nu/4, Nx)
         # Generate MxM stepping matrix, this is for the RHS
         B = A'
 
         # Timestepping
-        for i = 1: (T-1) # time stepping loop
+        for i = 1: (Nt) # time stepping loop
             # Advance one timestep
             v[:, i+1] = A\(B*v[:, i])
         end # end time step loop

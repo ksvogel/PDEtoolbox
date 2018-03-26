@@ -68,7 +68,6 @@ u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
 v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
 
 # Plotting
-heatmap(v)
 hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
 l = size(v[:,1])
 Plots.plotlyjs()
