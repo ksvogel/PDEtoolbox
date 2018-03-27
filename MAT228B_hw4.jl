@@ -6,9 +6,9 @@ Homeworks for MAT 228
 =#
 include("PDEtool.jl")
 using PDEtool
-#using Plots
+using PyPlot
 using LatexPrint
-#plotlyjs()
+
 
 
 ##############################################################
@@ -44,6 +44,7 @@ Plots.plot(x, y_vals, linewidth=2, alpha=0.6)
 ###############################################################################
 # Grid refinement study Lax-Wendroof/Uwinding continuous/discontinuous I.C. table 1
 # Norm Convergence table 2
+
 a =  1.0
 c = 0.9
 s = Bool(1) # Switch variable to give basic mesh
@@ -77,12 +78,10 @@ refinement_ratios1 = (normerrors1[:,1:(end-1)] ./ normerrors1[:, 2:end])'
 refinement_ratios2 = (normerrors2[:,1:(end-1)] ./ normerrors2[:, 2:end])'
 R = round.(refinement_ratios1; refinement_ratios2],5, 10)
 R = [ [Nxs[2:end] ; Nxs[2:end] ] R ]
-println(R)
 lap(R)
 NE = signif.([normerrors1'; normerrors2'],5)
-NE = [Nxs[2:end]; Ne]
 lap(NE)
-println(NE)
+
 
 
 
@@ -90,29 +89,91 @@ println(NE)
 # Solve the advection equation with crank nicoslson
 
 a =  1.0
-h = 1/2^7 # Grid spacing
-k = 0.9*h/a # Tine stepping
+c = 0.9
 s = Bool(1) # Switch variable to give basic mesh
-funcRHS( x, t) = 0
+Nt = 10*2^6
+Nx = Int64(c*(Nt))
+k = 1/Nt
+h = 1/Nx
 FDM = 3 # CN
 #u_x0(x)= .5*cos.(2*pi*x) + 0.5
 u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
-v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
+v, error = PDEtool.advectionFDM(h, k, Nx, Nt, u_x0, a, s, FDM)
 
 # Plotting
-heatmap(v)
-hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
+fig = figure("CN_advection",figsize=(10,10))
+x = collect(linspace(0, 1-h, Nx))
 l = size(v[:,1])
-Plots.plotlyjs()
-x = hmesh
-y_vals = [v[:,1] v[:,50]-ones(l) v[:,100]-2*ones(l) v[:, end]-3*ones(l)]
-labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])  string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
-Plots.plot(x, y_vals, linewidth=2, alpha=0.6, labels = labels)
+snaps = [ 1 10 20 30 40 276 376 476 576]
+subplot(339) # Create the third plot of a 4x4 group of subplots
+suptitle("Crank-Nicolson for Advection, discontinuous initial conditions") # Supe title, title for all subplots combined
+for sn in 1:1:9
+    sp = parse(Int64, string("33", sn))
+    subplot(sp)
+    title("T = ", k*snaps[sn])
+    ax = gca()
+    setp(ax[:get_xticklabels](),visible=false) # Disable x tick labels
+    setp(ax[:get_yticklabels](),visible=false) # Disable y tick labels
+    y = v[:,snaps[sn]]
+    #labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])     string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
+    plot(x, y, linewidth=1, alpha=0.6)
+    fig[:canvas][:draw]()
+end # Update the figure, required when doing additional modifications
 
+
+##############################################################################
 # Plot the relative phase error
-
 x = [j for j in 0:.05: pi]
 y = -atan.(-0.9*sin.(x)./(1-0.9^2*sin.(x).^2./4))./(0.9.*x)
-Plots.plot(x, y, linewidth=2, alpha=0.6)
+plot(x, y, linewidth=2, alpha=0.6)
+title("Relative Phase Error for advection discretized with Crank-Nicolson")
+ylabel(L"$\frac{\arg(g(\theta))}{-\nu \theta}$")
+xlabel(L"$\theta$")
+#savefig("phase_compare.png", type="png", dpi=300)
+
+# In part A we found using Von Neumann analysis that we expect no amplitude error. The relative phase
+a =  1.0
+c = 0.9
+s = Bool(1) # Switch variable to give basic mesh
+Nt = 10*2^6
+Nx = Int64(c*(Nt))
+k = 1/Nt
+h = 1/Nx
+FDM = 3 # CN
+#u_x0(x)= .5*cos.(2*pi*x) + 0.5
+u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
+v, error = PDEtool.advectionFDM(h, k, Nx, Nt, u_x0, a, s, FDM)
+
+# Plotting
+fig = figure("CN_advection",figsize=(10,10))
+x = collect(linspace(0, 1-h, Nx))
+l = size(v[:,1])
+snaps = [ 1 10 20 30 40 341 441 541 640]
+subplot(339) # Create the third plot of a 4x4 group of subplots
+suptitle("Crank-Nicolson for Advection, discontinuous initial conditions") # Supe title, title for all subplots combined
+for sn in 1:1:9
+    sp = parse(Int64, string("33", sn))
+    subplot(sp)
+    timestr = string("T = ", k*snaps[sn])
+    title(timestr)
+    ax = gca()
+    setp(ax[:get_xticklabels](),visible=false) # Disable x tick labels
+    setp(ax[:get_yticklabels](),visible=false) # Disable y tick labels
+    y = v[:,snaps[sn]]
+    #labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])     string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
+    plot(x, y, linewidth=1, alpha=0.6)
+    fig[:canvas][:draw]()
+end # Update the figure, required when doing additional modifications
+
+
+##############################################################################
+# Plot the relative phase error
+x = [j for j in 0:.05: pi]
+y = -atan.(-0.9*sin.(x)./(1-0.9^2*sin.(x).^2./4))./(0.9.*x)
+plot(x, y, linewidth=2, alpha=0.6)
+title("Relative Phase Error for advection discretized with Crank-Nicolson")
+ylabel(L"$\frac{\arg(g(\theta))}{-\nu \theta}$")
+xlabel(L"$\theta$")
+#savefig("phase_compare.png", type="png", dpi=300)
 
 # In part A we found using Von Neumann analysis that we expect no amplitude error. The relative phase

@@ -131,8 +131,11 @@ function advectionFDM(h::Float64, k::Float64, Nx::Int64, Nt::Int64, u_x0::Functi
 #####################
 
     elseif FDM == 3 # Step with Crank-Nicolson
+
+        # Generate temp RHS vector
+        RHS = zeros(sizeof(v[:,1]))
         # Generate MxM stepping matrix, this is for the LHS
-        A = advectionMAT(-nu/4, nu/4, 1.0, nu/4, -nu/4, Nx)
+        A = advectionMAT(-nu/4, nu/4, -nu/4, 1.0, nu/4, Nx)
         # Generate MxM stepping matrix, this is for the RHS
         B = A'
 
