@@ -21,6 +21,7 @@ function meshmaker(funcRHS::Function, h::Float64, k::Float64, s::Bool)
 
 
     else
+
         hmesh = [j for j in 0:h:(1-h)] .+ 0.5*h
         kmesh = [j for j in 0:k:1]
 
@@ -41,7 +42,60 @@ end #function]
 ###############################################################################
 # Begin Hyperbolic Solvers
 ###############################################################################
+#=
+In one spatial dimension the linearized equations of acoustics (sound waves) are
+p_t + K u_x = 0
+ru_t + p_x = 0,
+where u is the velocity and p is the pressure, r is the density, and K is the bulk modulus.
 
+This function solves this hyperbolic system using Lax-Wendroff on a cell-centered grid with two ghost cells.
+
+
+=#
+
+
+
+function acoustics1D(h::Float64, k::Float64, p_x0::Function, u_x0::Function, K::Float64, r::Float64)
+
+    #################### Set up the mesh and th e solution vector
+    s = Bool(0) # Want a cell-centered grid
+    funcRHS(x,y) = 0 # Dummy function
+    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
+    xpadded = collect(0-h:h:(1)) + 0.5*h
+    p = zeros(M+2,T) # numeric solution, includes two boundary ghost points
+    p[:, 1] = p_x0.(xpadded) # initial condtions
+    u = zeros(M+2,T) # numeric solution, includes two boundary ghost points
+    u[:, 1] = u_x0.(xpadded) # initial condtions
+    nu = k/h
+
+
+    ########### Time stepping
+    for n in 1:(T-1)
+
+        ######## Set ghost points
+        # Because of indexing, u[1,n] = u_0^n etc
+        p[1,n] = p[2,n]
+        p[end,n] = 0.5*(p[end-1,n] + sqrt(K*r)*u[end-1,n])
+        u[1,n] = -u[2,n]
+        u[end,n] = 0.5*(p[end-1,n]/sqrt(K*r) + u[end-1,n])
+
+        ######## Iterate to get next time step
+
+        for j in 2: (M-1)
+            p[j, n+1] = p[j,n] - 0.5*nu*K*(u[j+1,n] - u[j-1,n]) + (0.5*nu^2*K/r)*(p[j+1,n] - 2*p[j,n] + p[j-1,n])
+            u[j, n+1] = u[j,n] - (0.5*nu/r)*(p[j+1,n] - p[j-1,n]) + (0.5*nu^2*K/r)*(u[j+1,n] - 2*u[j,n] + u[j-1,n])
+        end
+
+
+    end
+
+    return (u,p)
+
+end # function
+
+
+
+###############################################################################
 #= advectionMAT makes the stepping matrices for advectionFDM, it takes values for the diagonal, off diagonal, and corners and builds a N x N matrix where N is the number of mesh points
 
 c1                  Value for upper right corner
@@ -78,9 +132,9 @@ function advectionFDM(h::Float64, k::Float64, Nx::Int64, Nt::Int64, u_x0::Functi
 
 ###################### Initial setup of initial conditions and mesh
 
-# I am assuming periodic conditions which is taken care of in the upper right and lower left corners of the time stepping matrix and so no boundary conditions are needed
+# I am assuming periodic conditions which is taken care of in the upper right and lower left corners of the time stepping matrix
 
-    hmesh = collect(linspace(0, 1-h, Nx))
+    hmesh = collect(linspace(0, 1-h, Nx)) # mesh wraps around with v(0) = v(1)
     v = zeros(Nx, Nt+1) # numeric solution
     v[:, 1] = u_x0.(hmesh) # initial condtions
     nu = a*k/h

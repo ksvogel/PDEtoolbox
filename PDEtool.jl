@@ -41,6 +41,7 @@ export prADI_heat2D
 export FHN2D
 export advectionMAT
 export advectionFDM
+export acoustics1D
 
 #include("pde_visualizer.jl")
 

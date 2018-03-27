@@ -15,8 +15,6 @@ using LatexPrint
 
 #= Homework 4, problem 1
 Solve the advection equation withperiodic boundry conditions using Lax-Wendroff and upwinding.
-
-# Need to use interpolation for the final timestep since linspace does not give the final time exactly at 1
 =#
 # For testing
 a =  1.0
@@ -55,7 +53,7 @@ hend = 10
 Nts = [10*2^j for j in hstart:1:hend]
 Nxs = round.(Int, [c*(nt) for nt in Nts ])
 ks = [1/(Nt) for Nt in Nts]
-hs = [1/Nx for Nx in Nxs]
+hs = [1/Nx for Nx in Nxs] # I will use linspace to index from 0:1-h since we loop back around on the mesh for periodic conditions
 vsLW1 = Vector{Any}(length(Nts))
 vsUP1 = Vector{Any}(length(Nts))
 vsLW2 = Vector{Any}(length(Nts))
@@ -88,50 +86,6 @@ lap(NE)
 ###############################################################################
 # Solve the advection equation with crank nicoslson
 
-a =  1.0
-c = 0.9
-s = Bool(1) # Switch variable to give basic mesh
-Nt = 10*2^6
-Nx = Int64(c*(Nt))
-k = 1/Nt
-h = 1/Nx
-FDM = 3 # CN
-#u_x0(x)= .5*cos.(2*pi*x) + 0.5
-u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
-v, error = PDEtool.advectionFDM(h, k, Nx, Nt, u_x0, a, s, FDM)
-
-# Plotting
-fig = figure("CN_advection",figsize=(10,10))
-x = collect(linspace(0, 1-h, Nx))
-l = size(v[:,1])
-snaps = [ 1 10 20 30 40 276 376 476 576]
-subplot(339) # Create the third plot of a 4x4 group of subplots
-suptitle("Crank-Nicolson for Advection, discontinuous initial conditions") # Supe title, title for all subplots combined
-for sn in 1:1:9
-    sp = parse(Int64, string("33", sn))
-    subplot(sp)
-    title("T = ", k*snaps[sn])
-    ax = gca()
-    setp(ax[:get_xticklabels](),visible=false) # Disable x tick labels
-    setp(ax[:get_yticklabels](),visible=false) # Disable y tick labels
-    y = v[:,snaps[sn]]
-    #labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])     string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
-    plot(x, y, linewidth=1, alpha=0.6)
-    fig[:canvas][:draw]()
-end # Update the figure, required when doing additional modifications
-
-
-##############################################################################
-# Plot the relative phase error
-x = [j for j in 0:.05: pi]
-y = -atan.(-0.9*sin.(x)./(1-0.9^2*sin.(x).^2./4))./(0.9.*x)
-plot(x, y, linewidth=2, alpha=0.6)
-title("Relative Phase Error for advection discretized with Crank-Nicolson")
-ylabel(L"$\frac{\arg(g(\theta))}{-\nu \theta}$")
-xlabel(L"$\theta$")
-#savefig("phase_compare.png", type="png", dpi=300)
-
-# In part A we found using Von Neumann analysis that we expect no amplitude error. The relative phase
 a =  1.0
 c = 0.9
 s = Bool(1) # Switch variable to give basic mesh
