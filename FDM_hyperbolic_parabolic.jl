@@ -59,35 +59,46 @@ set by parameter FL.  Options 4-7 are high-resolution methods.  This function re
 =#
 
 function limiterF(FL::Int64)
+    Fltype = ["upwinding" "Lax-Wendroff" "Beam-Warming" "minmod" "superbee" "MC" "van Leer"]
 
     if FL == 1 # Upwinding
-        phi(x) = 0
-        return phi
+        ahi(x) = 0
+        println(Fltype[FL])
+        return ahi
 
     elseif FL == 2 # Lax-Wendroff
-        phi(x) = 1
-        return phi
+        bhi(x) = 1
+        println(Fltype[FL])
+        return bhi
 
     elseif FL == 3 # Beam-Warming
-        phi(x) = x
-        return phi
+        chi(x) = x
+        println(Fltype[FL])
+        return chi
 
     elseif FL == 4  # minmod
         # Th notes weren't incredibly clear on what form minmod takes, this is what I got from Wikipedia
-        phi(x) = max(0, min(1,x))
-        return phi
+        dhi(x) = max(0, min(1,x))
+        println(Fltype[FL])
+        return dhi
 
     elseif FL == 5 # superbee
-        phi(x) = max(0, min(1,2*x), min(2, x))
-        return phi
+        ehi(x) = max(0, min(1,2*x), min(2, x))
+        println(Fltype[FL])
+        return ehi
 
     elseif FL == 6 # MC
-        phi(x) = max(0, min((1+x)/2, 2, 2*x))
-        return phi
+        fhi(x) = max(0, min((1+x)/2, 2, 2*x))
+        println(Fltype[FL])
+        return fhi
 
     elseif FL == 7 # van Leer
-        phi(x) = (x + abs(x))/(1 + abs(x))
-        return phi
+        ghi(x) = (x + abs(x))/(1 + abs(x))
+        println(Fltype[FL])
+        return ghi
+
+    else
+        error("Not a valid limiter choice")
     end
 
 end #function
@@ -122,7 +133,7 @@ function advectionFV(h::Float64, k::Float64, a::Float64, u_x0::Function, FL::Int
     # Ratio of jumps across edges
     thetaj(u, j, a) = DeltaU(u,J_up(a, j))/DeltaU(u,j)
     # limited difference, check to see if it is flat
-    limdiff(u, j) = abs(DeltaU(u, j)) < 1e-10 ? 0 : (phi(DeltaU(u, j))*DeltaU(u, j))
+    limdiff(u, j) = abs(DeltaU(u, j)) < 1e-10 ? 0 : (phi(thetaj(u, j, a))*DeltaU(u, j))
     # Upwinding flux
     F_up(u, j, a) = (a >= 0) ? a*u[j-1] : a*u[j]
     # numerical flux function

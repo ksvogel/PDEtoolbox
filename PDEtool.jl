@@ -43,6 +43,7 @@ export advectionMAT
 export advectionFDM
 export acoustics1D
 export advectionFV
+export limiterF
 
 #include("pde_visualizer.jl")
 
