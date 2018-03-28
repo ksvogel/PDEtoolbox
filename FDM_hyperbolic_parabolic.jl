@@ -54,7 +54,18 @@ This script solves the linear advection equation using a finite volume method of
 6       MC
 7       van Leer
 
-set by parameter FL.  Options 4-7 are high-resolution methods.  This function relies on a bunch of smaller sub functions in order to keep the code readable:
+set by parameter FL.  Options 4-7 are high-resolution methods.  This function depends on the function limiterF
+
+
+Ex:
+
+C = 0.9 # Courant number
+a = 1.0
+h = 1/2^8 # grid spacing
+k = C*h # time step
+Tend = 5.0
+u_x0(x)=cos.(16*pi*x).*exp.(-50*(x - 0.5)^2) # Initial condtion
+v = advectionFV(h, k, a, u_x0, FL, Tend)
 
 =#
 
@@ -156,8 +167,8 @@ function advectionFV(h::Float64, k::Float64, a::Float64, u_x0::Function, FL::Int
 
 end # function
 
-
-#=
+###############################################################################
+#= acoustics1D
 In one spatial dimension the linearized equations of acoustics (sound waves) are
 p_t + K u_x = 0
 ru_t + p_x = 0,
@@ -165,9 +176,19 @@ where u is the velocity and p is the pressure, r is the density, and K is the bu
 
 This function solves this hyperbolic system using Lax-Wendroff on a cell-centered grid with two ghost cells.
 
+EX:
+
+C = 0.9 # Courant number
+h = 1/2^8 # grid spacing
+k = C*h # time step
+K = 0.5 # Bulk Modulus
+r = 1.0 #
+Tend = 3.0
+u_x0(x)=cos.(16*pi*x).*exp.(-100*(x - 0.5)^2) # Initial condition
+p_x0(x)=cos.(16*pi*x).*exp.(-100*(x - 0.5)^2) # Initial condition
+u, p = acoustics1D(h, k, p_x0, u_x0, K, r, Tend)
 
 =#
-
 
 
 function acoustics1D(h::Float64, k::Float64, p_x0::Function, u_x0::Function, K::Float64, r::Float64, Tend::Float64)
@@ -243,6 +264,21 @@ end # function
 FDM = 1              Lax-Wendroff
 FDM = 2              Upwinding
 FDM = 3              Crank-Nicolson
+
+Ex:
+
+
+a =  1.0
+c = 0.9
+s = Bool(1) # Switch variable to give basic mesh
+u_x0(x)= 0.5*cos.(2*pi*x) + 0.5 # Initial condtion
+hstart =  4
+hend = 10
+Nt = 10*2^8 # number of time points
+Nx = round.(Int, c*(Nt) # number of spatial points
+k = 1/(Nt)
+h = 1/Nx
+v, error  = advectionFDM(h, k, Nx, Nt, u_x01, a, s, 1)
 
 =#
 
@@ -350,6 +386,17 @@ h - space step
 k - time step
 funcRHS - function of x, t, and constants
 spaceDim - amount of spatial dimensions
+
+
+Ex:
+
+h = 1/2^8  # Grid spacing
+k = 1.0 # Time stepping
+T = 600
+s = Bool(0) # Switch variable to give cell centered grid
+v_xy0(x, y) = exp.(-100(x.^2 + y.^2))
+w_xy0(x, y) = 0.0
+vsol1 = FHN2D(h, k, v_xy0, w_xy0, T, s)
 
 =#
 
@@ -461,6 +508,18 @@ k - time step
 funcRHS - function of x, t, and constants
 spaceDim - amount of spatial dimensions
 
+Ex:
+
+a =  0.1
+h = 1/3^4 # Grid spacing
+k = 1/3^4# Tine stepping
+s = Bool(0) # Switch variable to give cell centered grid
+funcRHS( x, t) = 0
+u_0t(t) = 0 # boundary condition at x = 0
+u_1t(t) = 0 # boundary condition at x = 1
+u_xy0(x, y)= exp.(-10((x-.3).^2 + (y-.4).^2))
+v = prADI_heat2D(h, k, funcRHS,  u_0t, u_1t, u_xy0, a, s)
+
 =#
 
 function prADI_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64, s::Bool)
@@ -519,7 +578,20 @@ function prADI_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function
 end # function
 
 ####################### Forward Euler, 2 spatial dimensions
-# So rather than save a million matrices I will only save the one for the final timestep.  Requires k <= h^2/2a
+#= So rather than save a million matrices I will only save the one for the final timestep.  Requires k <= h^2/2a
+
+Ex:
+
+a =  0.1
+h = 1/2^5 # Grid spacing
+k = h^2/(4*a)# Tine stepping
+funcRHS( x, t) = 0
+u_0t(t) = 0 # boundary condition at x = 0
+u_1t(t) = 0 # boundary condition at x = 1
+u_xy0(x, y)= exp.(-100((x-.5).^2 + (y-.5).^2))
+v = PDEtool.FE_heat2D(h, k, funcRHS,  u_0t, u_1t, u_xy0, a)
+
+=#
 
 function FE_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64, s::Bool)
 
@@ -590,7 +662,18 @@ Crank-Nicolson is an implicit methods and requires solving a matrix at each time
 =#
 
 ####################### Crank Nicolson, 2 spatial dimensions
-# So rather than save a million matrices I will only save the one for the final timestep
+#= Rather than save a million matrices I will only save the one for the final timestep
+
+a = 1.0
+h = 1/2^6 # Grid spacing
+k = 0.01
+funcRHS( x, t) = 0
+u_0t(t) = 0 # boundary condition at x = 0
+u_1t(t) = 0 # boundary condition at x = 1
+u_xy0(x, y)= exp.(-100((x-.5).^2 + (y-.5).^2)) #-exp.(-.5^2) #exp(-100((x -
+v = PDEtool.CN_heat2D(h, k, funcRHS,  u_0t, u_1t, u_xy0, a)
+
+=#
 
 function CN_heat2D(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_xy0::Function, a::Float64, s::Bool)
 
@@ -673,7 +756,24 @@ end #function
 
 
 
-####################### Crank Nicolson, 1 for i = 2: (T-1) # time stepping loopspatial dimension
+####################### Crank Nicolson
+
+#=
+
+Ex:
+
+h = 1/2^5 # Grid spacing
+k = .1 # Tine stepping
+funcRHS( x, t) = 1 - exp.( - t)
+u_0t(t) = 0 # boundary condition at x = 0
+u_1t(t) = 0 # boundary condition at x = 1
+u_x0(x)= 0
+#_x0(x) = exp.(-(x-.5).^2)-exp.(-.5^2)
+#u_x0(x) = x < 0.5 ? x : 1-x # initial condtion at t = 0
+a =  0.1
+v = PDEtool.CN_heat(h, k, funcRHS,  u_0t, u_1t, u_x0, a)
+
+=#
 
 function CN_heat(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_x0::Function, a::Float64, s::Bool)
 
@@ -730,6 +830,19 @@ end #function
 This function performs BDF-2 on the heat equation
 which has the form
 u^{n+1} = B_1 u^{n} + B_2 u^{n-1} + b
+
+ex:
+
+h = 0.02 # grid spacing
+k = 0.1 # time stepping
+funcRHS( x, t) = 0 #
+u_0t(t) = 1 # boundary condition at x = 0
+u_1t(t) = 0 # boundary condition at x = 1
+u_x0(x) = x < 0.5 ? 1 : 0 # initial condtion at t = 0
+a =  1.0
+#v_1  = PDEtool.CN_heat(h, k, funcRHS,  u_0t, u_1t, u_x0, a)
+m = PDEtool.BDF2_heat(h, k, funcRHS,  u_0t, u_1t, u_x0, a)
+
 =#
 function BDF2_heat(h::Float64, k::Float64, funcRHS::Function,  u_0t::Function, u_1t::Function, u_x0::Function, a::Float64, s::Bool)
 
@@ -860,15 +973,7 @@ function refinement_ratios(v_unrefined::Vector{Any}, hs::Array{Float64,1}, ks::A
 end #function
 
 
-# When doing a norm to see order of accuracy, don't use a regular norm, treat it as a discrete integral in time (or space) and don't forget to add the weights
 
-# "waterfall plot", or look at a few time snapshots in space, heat maps are hard to process.
-#  Discountinuous = lots of high frequency spatial components
-# BDF2 is centered at the the n+1 time point (so evaluate F at n+1)
-# Direct solve may be expensive for the large 2d spatial systems
-# 2nd homework use a sparse solver
-# 228A look at direct solve for
-# ADI solve is a bunch of 1-d direct solves.
 
 ##################################################################
 

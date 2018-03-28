@@ -29,16 +29,7 @@ u_x0(x)= 0.5*cos.(2*pi*x) + 0.5
 #u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
 #v, error = PDEtool.advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
 
-# Plotting
-#=
-Plots.plotlyjs()
-hmesh, kmesh, F, M, T = PDEtool.meshmaker(funcRHS, h, k, s)
-l = size(v[:,1])
-x = hmesh
-y_vals = [v[:,1] v[:,50]-ones(l) v[:,100]-2*ones(l) v[:, end]-3*ones(l)]
-#labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50]) string("Time = ", kmesh[100])  string("Time = ", kmesh[end])
-Plots.plot(x, y_vals, linewidth=2, alpha=0.6)
-=#
+
 ###############################################################################
 # Grid refinement study Lax-Wendroof/Uwinding continuous/discontinuous I.C. table 1
 # Norm Convergence table 2

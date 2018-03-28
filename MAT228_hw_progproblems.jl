@@ -248,7 +248,9 @@ u_x0(x)= 0
 #_x0(x) = exp.(-(x-.5).^2)-exp.(-.5^2)
 #u_x0(x) = x < 0.5 ? x : 1-x # initial condtion at t = 0
 a =  0.1
-v = PDEtool.CN_heat(h, k, funcRHS,  u_0t, u_1t, u_x0, a)size(v_unrefined[3],2)),1:-1/size(v_unrefined[3]
+v = PDEtool.CN_heat(h, k, funcRHS,  u_0t, u_1t, u_x0, a)
+
+size(v_unrefined[3],2)),1:-1/size(v_unrefined[3]
 heatmap(v)
 
 # The grid refinement study using the infinity-norm
