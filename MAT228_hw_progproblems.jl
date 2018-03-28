@@ -6,88 +6,12 @@ Homeworks for MAT 228
 =#
 include("PDEtool.jl")
 using PDEtool
+using PyPlot
 using Plots
 plotlyjs()
 
 
 ##############################################################
-
-#= Homework 4, problem 1
-Solve the advection equation withperiodic boundry conditions using Lax-Wendroff and upwinding.
-
-# Need to use interpolation for the final timestep since linspace does not give the final time exactly at 1
-=#
-
-a =  1.0
-h = 1/2^7 # Grid spacing
-k = 0.9*h/a # Tine stepping
-s = Bool(1) # Switch variable to give basic mesh
-funcRHS( x, t) = 0
-FDM = 1 # Lax-Wendroff
-#FDM = 2 # Upwinding
-#u_x0(x)= 0.5*cos.(2*pi*x) + 0.5
-u_x0(x)= 0.5*cos.(2*pi*x) + 0.5
-u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
-v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
-
-# Plotting
-Plots.plotlyjs()
-hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
-l = size(v[:,1])
-x = hmesh
-y_vals = [v[:,1] v[:,50]-ones(l) v[:,100]-2*ones(l) v[:, end]-3*ones(l)]
-labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])  string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
-Plots.plot(x, y_vals, linewidth=2, alpha=0.6, labels = labels)
-
-# The grid refinement study using the infinity-norm
-hstart =  3
-hend = 11
-spacing = [1/2^j for j in hstart:1:hend]
-vsLW = Vector{Any}(length(spacing))
-vsUP = Vector{Any}(length(spacing))
-normerrors = zeros(6,length(spacing))
-
-for i in 1:length(spacing)
-    vsLW[i], normerrors[1:3, i]  = advectionFDM(spacing[i], 0.9*spacing[i]/a, funcRHS, u_x0, a, s, 1)
-    vsUP[i], normerrors[4:6, i]  = advectionFDM(spacing[i], 0.9*spacing[i]/a, funcRHS, u_x0, a, s, 2)
-end
-
-refinement_ratios = (normerrors[:,1:(end-1)] ./ normerrors[:, 2:end])'
-
-
-# Solve the advection equation with crank nicoslson
-
-a =  1.0
-h = 1/2^7 # Grid spacing
-k = 0.9*h/a # Tine stepping
-s = Bool(1) # Switch variable to give basic mesh
-funcRHS( x, t) = 0
-FDM = 3 # CN
-#u_x0(x)= .5*cos.(2*pi*x) + 0.5
-u_x0(x) = abs(x - 0.5) < 0.25 ? 1 : 0 # initial condtion at t = 0
-v, error = advectionFDM(h, k, funcRHS, u_x0, a, s, FDM)
-
-# Plotting
-hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
-l = size(v[:,1])
-Plots.plotlyjs()
-x = hmesh
-y_vals = [v[:,1] v[:,50]-ones(l) v[:,100]-2*ones(l) v[:, end]-3*ones(l)]
-labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])  string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
-Plots.plot(x, y_vals, linewidth=2, alpha=0.6, labels = labels)
-
-# Plot the relative phase error
-
-x = [j for j in 0:.05: pi]
-y = -atan.(-0.9*sin.(x)./(1-0.9^2*sin.(x).^2./4))./(0.9.*x)
-Plots.plot(x, y, linewidth=2, alpha=0.6)
-
-# In part A we found using Von Neumann analysis that we expect no amplitude error. The relative phase
-
-
-
-
-
 
 ##############################################################
 #= Homework 3, problem 1
@@ -142,8 +66,7 @@ for j in 1:length(v_unrefined)funcRHS
 end
 conserved = [mass_beginning mass mass_diff]
 writecsv("hw_3_conserved.txt", conserved)
-
-
+#################################################################
 #= Homework 3, problem 2
 Solve the The FitzHugh-Nagumo equations with Neumann boundry conditions using the Peaceman-Rachford ADI scheme on a cell-centered grid and Forward Euler
 =#
@@ -175,35 +98,34 @@ ax[:plot_surface](xgrid, ygrid, z, rstride=2,edgecolors="k", cstride=2, cmap=Col
 
 
 
-# Plotting ###################3
-fig = figure("FN_2",figsize=(10,10))
+####################################################
+# Plot FN equations for a select number of time steps
+meshgrid(xs, ys) = [xs[i] for i in 1:length(xs), j in length(ys)], [ys[j] for i in 1:length(xs), j in 1:length(ys)]
+xgrid = [j for j in 0:h:(1-h)] .+ 0.5*h
+ygrid = [j for j in 0:h:(1-h)] .+ 0.5*h
+x, y = meshgrid(xgrid,ygrid)
+
+fig = figure("FN_2dplot",figsize=(10,10))
 x = collect(0:h:(1-h)) + 0.5*h
-snaps = [ 1 10 20 30 40 200 300 400 600]
 subplot(339) # Create the third plot of a 4x4 group of subplots
-suptitle("Linearized acoustic equations") # Supe title, title for all subplots combined
+#suptitle(L"Initial condition: $u(x,0) = \cos(16 \pi x)\exp(-50(x-0.5)^2)$")
+#suptitle(L"Initial condition: $u(x,0) = \sin(2 \pi x) \sin(4 \pi x)$")
+suptitle(L"Initial condition: $v(x,y,0) = \exp(-100(x^2 + y^2))), w(x,y,0) = 0$")
+snaps = [1 2 3 4 11 13 15 17 19]
 for sn in 1:1:9
+    v = vsol1[sn]
     sp = parse(Int64, string("33", sn))
     subplot(sp)
-    titlestr = string("t = ", k*snaps[sn])
+    titlestr = string("t = ", k*snaps[sn]*34)
     title(titlestr)
-    ax = gca()
-    setp(ax[:get_xticklabels](),visible=false) # Disable x tick labels
-    setp(ax[:get_yticklabels](),visible=false) # Disable y tick labels
-    ylim((-1,1))
-    y1 = p[2:end-1,snaps[sn]]
-    y2 = u[2:end-1,snaps[sn]]
-    y = [y1 y2]
-
-    #labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])     string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
-    if sn == 1
-        plot(x, y1, linewidth=1, alpha=0.6, label = "p(x,t)")
-        plot(x, y2, linewidth=1, alpha=0.6, label = "u(x,t)")
-        legend(loc="upper left",fancybox="true")
-    else
-        plot(x, y, linewidth=1, alpha=0.6)
-    end
+    ax = fig[:add_subplot](3,3,sn, projection = "3d")
+    ax[:plot_surface](x,y, v, rstride=2,edgecolors="k", cstride=2, cmap=ColorMap("gray"), alpha=0.8, linewidth=0.25)
+    #setp(ax[:get_xticklabels](),visible=false) # Disable x tick labels
+    #setp(ax[:get_yticklabels](),visible=false) # Disable y tick labels
     fig[:canvas][:draw]()
-end # Update the figure, required
+end # Update the figure, required when doing additional modifications
+
+
 #=
 fig1 = surface( vsol1[1] )
 fig2 = surface( vsol1[2] )

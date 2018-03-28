@@ -117,12 +117,8 @@ function advectionFV(h::Float64, k::Float64, a::Float64, u_x0::Function, FL::Int
     v[3:end-2, 1] = u_x0.(hmesh) # initial condtions
     nu = a*k/h
 
-
-
     ################### Setup functions
     # I am making heavy use of Julia's anonymous functions
-    # Pre allocate
-    J_up = Int64
 
     # Delta u_(j-1/2) takes a vector and an index
     DeltaU(u, j) =  u[j] - u[j-1]
@@ -154,10 +150,7 @@ function advectionFV(h::Float64, k::Float64, a::Float64, u_x0::Function, FL::Int
 
         end
 
-
     end #time stepping
-
-
 
     return v
 
