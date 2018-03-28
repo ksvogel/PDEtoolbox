@@ -42,6 +42,7 @@ export FHN2D
 export advectionMAT
 export advectionFDM
 export acoustics1D
+export advectionFV
 
 #include("pde_visualizer.jl")
 

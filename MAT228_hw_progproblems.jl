@@ -166,9 +166,45 @@ s = Bool(0) # Switch variable to give cell centered grid
 v_xy0(x, y) = 1 - 2.*x
 w_xy0(x, y) = 0.05.*y
 vsol2 = FHN2D(h, k, v_xy0, w_xy0, T, s)
-vsol2 = vsol
 
 
+################## Try this 2018-03-27
+fig = figure("pyplot_surfaceplot",figsize=(10,10))
+ax = fig[:add_subplot](2,1,1, projection = "3d")
+ax[:plot_surface](xgrid, ygrid, z, rstride=2,edgecolors="k", cstride=2, cmap=ColorMap("gray"), alpha=0.8, linewidth=0.25)
+
+
+
+# Plotting ###################3
+fig = figure("FN_2",figsize=(10,10))
+x = collect(0:h:(1-h)) + 0.5*h
+snaps = [ 1 10 20 30 40 200 300 400 600]
+subplot(339) # Create the third plot of a 4x4 group of subplots
+suptitle("Linearized acoustic equations") # Supe title, title for all subplots combined
+for sn in 1:1:9
+    sp = parse(Int64, string("33", sn))
+    subplot(sp)
+    titlestr = string("t = ", k*snaps[sn])
+    title(titlestr)
+    ax = gca()
+    setp(ax[:get_xticklabels](),visible=false) # Disable x tick labels
+    setp(ax[:get_yticklabels](),visible=false) # Disable y tick labels
+    ylim((-1,1))
+    y1 = p[2:end-1,snaps[sn]]
+    y2 = u[2:end-1,snaps[sn]]
+    y = [y1 y2]
+
+    #labels = [string("Time = ", kmesh[1]) string("Time = ", kmesh[50])     string("Time = ", kmesh[100])  string("Time = ", kmesh[end])  ]
+    if sn == 1
+        plot(x, y1, linewidth=1, alpha=0.6, label = "p(x,t)")
+        plot(x, y2, linewidth=1, alpha=0.6, label = "u(x,t)")
+        legend(loc="upper left",fancybox="true")
+    else
+        plot(x, y, linewidth=1, alpha=0.6)
+    end
+    fig[:canvas][:draw]()
+end # Update the figure, required
+#=
 fig1 = surface( vsol1[1] )
 fig2 = surface( vsol1[2] )
 fig3 = surface( vsol1[3] )
@@ -202,7 +238,7 @@ fig8 = surface( vsol1[18])
 fig9 = surface( vsol1[19])
 #data = [ fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9 ]
 plot(fig1, fig2, fig3, fig4, fig5, fig6, fig7, fig8, fig9)
-
+=#
 ##############################################################
 
 #= Homework 2, problem 2

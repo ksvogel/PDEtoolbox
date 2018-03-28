@@ -42,6 +42,117 @@ end #function]
 ###############################################################################
 # Begin Hyperbolic Solvers
 ###############################################################################
+
+#=
+This script solves the linear advection equation using a finite volume method of the form u_j^(n+1) = u_j^n - (dt/dx)(F_(j+1/2) -F_(j-1/2)) on a cell centered mesh with ghost cells. There is a choice of 7 different limiter functions
+
+1       Upwinding
+2       Lax-Wendroff
+3       Beam-Warming
+4       minmod
+5       superbee
+6       MC
+7       van Leer
+
+set by parameter FL.  Options 4-7 are high-resolution methods.  This function relies on a bunch of smaller sub functions in order to keep the code readable:
+
+=#
+
+function limiterF(FL::Int64)
+
+    if FL == 1 # Upwinding
+        phi(x) = 0
+        return phi
+
+    elseif FL == 2 # Lax-Wendroff
+        phi(x) = 1
+        return phi
+
+    elseif FL == 3 # Beam-Warming
+        phi(x) = x
+        return phi
+
+    elseif FL == 4  # minmod
+        # Th notes weren't incredibly clear on what form minmod takes, this is what I got from Wikipedia
+        phi(x) = max(0, min(1,x))
+        return phi
+
+    elseif FL == 5 # superbee
+        phi(x) = max(0, min(1,2*x), min(2, x))
+        return phi
+
+    elseif FL == 6 # MC
+        phi(x) = max(0, min((1+x)/2, 2, 2*x))
+        return phi
+
+    elseif FL == 7 # van Leer
+        phi(x) = (x + abs(x))/(1 + abs(x))
+        return phi
+    end
+
+end #function
+
+
+
+function advectionFV(h::Float64, k::Float64, a::Float64, u_x0::Function, FL::Int64, Tend::Float64)
+
+    #################### Set up the mesh and th e solution vector
+    s = Bool(0) # Want a cell-centered grid
+    hmesh = [j for j in 0:h:(1-h)] .+ 0.5*h
+    kmesh = [j for j in 0:k:Tend]
+    M = length(hmesh)
+    T = length(kmesh)
+    v = zeros(M+4,T) # numeric solution, includes two boundary ghost points
+    v[3:end-2, 1] = u_x0.(hmesh) # initial condtions
+    nu = a*k/h
+
+
+
+    ################### Setup functions
+    # I am making heavy use of Julia's anonymous functions
+    # Pre allocate
+    J_up = Int64
+
+    # Delta u_(j-1/2) takes a vector and an index
+    DeltaU(u, j) =  u[j] - u[j-1]
+    # Get the limiter function
+    phi = limiterF(FL)
+    # Set J_up
+    J_up(a, j) = (a >= 0) ? j-1 : j+1
+    # Ratio of jumps across edges
+    thetaj(u, j, a) = DeltaU(u,J_up(a, j))/DeltaU(u,j)
+    # limited difference, check to see if it is flat
+    limdiff(u, j) = abs(DeltaU(u, j)) < 1e-10 ? 0 : (phi(DeltaU(u, j))*DeltaU(u, j))
+    # Upwinding flux
+    F_up(u, j, a) = (a >= 0) ? a*u[j-1] : a*u[j]
+    # numerical flux function
+    F_j(u, j, a, nu) = F_up(u, j, a) + (abs(a)/2)*(1-abs(nu))*limdiff(u, j)
+
+
+    ######################## Time stepping
+    for n in 1:(T-1)
+        # loop the vector around so the ghost cells have the first values used to pad the end and the end value used to pad the beginning.  We have to be super careful about indexing now though
+        v[1:2, n] = v[end-3:end-2,n]
+        v[end-1:end,n] = v[3:4, n]
+
+        for j in 3:(M+2)
+            F_jplus = F_j(v[:,n], j+1, a, nu)
+            F_jminus = F_j(v[:,n], j, a, nu)
+
+            v[j, n+1] = v[j, n] - (k/h)*(F_jplus - F_jminus)
+
+        end
+
+
+    end #time stepping
+
+
+
+    return v
+
+end # function
+
+
 #=
 In one spatial dimension the linearized equations of acoustics (sound waves) are
 p_t + K u_x = 0
@@ -55,12 +166,15 @@ This function solves this hyperbolic system using Lax-Wendroff on a cell-centere
 
 
 
-function acoustics1D(h::Float64, k::Float64, p_x0::Function, u_x0::Function, K::Float64, r::Float64)
+function acoustics1D(h::Float64, k::Float64, p_x0::Function, u_x0::Function, K::Float64, r::Float64, Tend::Float64)
 
     #################### Set up the mesh and th e solution vector
     s = Bool(0) # Want a cell-centered grid
     funcRHS(x,y) = 0 # Dummy function
-    hmesh, kmesh, F, M, T = meshmaker(funcRHS, h, k, s)
+    hmesh = [j for j in 0:h:(1-h)] .+ 0.5*h
+    kmesh = [j for j in 0:k:Tend]
+    M = length(hmesh)
+    T = length(kmesh)
     xpadded = collect(0-h:h:(1)) + 0.5*h
     p = zeros(M+2,T) # numeric solution, includes two boundary ghost points
     p[:, 1] = p_x0.(xpadded) # initial condtions
